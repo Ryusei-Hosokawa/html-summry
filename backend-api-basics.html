@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>バックエンド / API の基礎 — SvelteKit のデータ取得を読むために</title>
+<style>
+:root {
+	--bg: #1a1b26;
+	--bg-dark: #16161e;
+	--bg-hl: #292e42;
+	--panel: #1f2335;
+	--line: #3b4261;
+	--fg: #c0caf5;
+	--fg-dim: #a9b1d6;
+	--comment: #565f89;
+	--blue: #7aa2f7;
+	--cyan: #7dcfff;
+	--purple: #bb9af7;
+	--green: #9ece6a;
+	--teal: #73daca;
+	--orange: #ff9e64;
+	--yellow: #e0af68;
+	--red: #f7768e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	padding: 0;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+	line-height: 1.9;
+	font-size: 16px;
+}
+
+.wrap {
+	max-width: 900px;
+	margin: 0 auto;
+	padding: 24px 16px 96px;
+}
+
+header.hero {
+	border-bottom: 2px solid var(--line);
+	padding: 32px 0 24px;
+	margin-bottom: 40px;
+}
+
+h1 {
+	font-size: clamp(1.5rem, 5vw, 2.25rem);
+	line-height: 1.3;
+	margin: 0 0 12px;
+	color: var(--fg);
+}
+
+.hero p {
+	margin: 0;
+	color: var(--fg-dim);
+	font-size: 0.95rem;
+}
+
+h2 {
+	font-size: clamp(1.2rem, 4vw, 1.6rem);
+	margin: 64px 0 8px;
+	padding-top: 24px;
+	border-top: 2px solid var(--line);
+	color: var(--cyan);
+	line-height: 1.4;
+}
+
+h2 .num {
+	display: block;
+	font-size: 0.75rem;
+	letter-spacing: 0.16em;
+	color: var(--comment);
+	margin-bottom: 4px;
+}
+
+h3 {
+	font-size: 1.05rem;
+	margin: 36px 0 8px;
+	color: var(--purple);
+}
+
+p { margin: 12px 0; }
+
+code {
+	font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+	font-size: 0.86em;
+	background: var(--bg-hl);
+	padding: 2px 6px;
+	border-radius: 3px;
+	color: var(--teal);
+}
+
+pre {
+	background: var(--bg-dark);
+	border: 1px solid var(--line);
+	border-left: 3px solid var(--blue);
+	padding: 16px;
+	overflow-x: auto;
+	font-size: 0.82rem;
+	line-height: 1.75;
+	margin: 16px 0;
+}
+
+pre code {
+	background: none;
+	padding: 0;
+	color: var(--fg);
+	font-size: inherit;
+}
+
+.c { color: var(--comment); font-style: italic; }
+.k { color: var(--purple); }
+.s { color: var(--green); }
+.f { color: var(--blue); }
+.t { color: var(--teal); }
+.n { color: var(--orange); }
+.err { color: var(--red); }
+
+.note, .warn, .key, .link {
+	border-left: 3px solid var(--blue);
+	background: var(--panel);
+	padding: 14px 16px;
+	margin: 20px 0;
+	font-size: 0.92rem;
+}
+.note { border-left-color: var(--blue); }
+.warn { border-left-color: var(--red); }
+.key  { border-left-color: var(--yellow); }
+.link { border-left-color: var(--green); }
+
+.note .label, .warn .label, .key .label, .link .label {
+	display: block;
+	font-size: 0.7rem;
+	letter-spacing: 0.14em;
+	margin-bottom: 6px;
+	text-transform: uppercase;
+}
+.note .label { color: var(--blue); }
+.warn .label { color: var(--red); }
+.key .label  { color: var(--yellow); }
+.link .label { color: var(--green); }
+
+.scroll { overflow-x: auto; margin: 20px 0; }
+
+table {
+	border-collapse: collapse;
+	width: 100%;
+	min-width: 480px;
+	font-size: 0.88rem;
+}
+
+th, td {
+	border: 1px solid var(--line);
+	padding: 9px 12px;
+	text-align: left;
+	vertical-align: top;
+}
+
+th {
+	background: var(--bg-hl);
+	color: var(--cyan);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+svg { display: block; max-width: 100%; height: auto; margin: 24px 0; }
+
+.fig {
+	background: var(--bg-dark);
+	border: 1px solid var(--line);
+	padding: 12px;
+	margin: 24px 0;
+}
+.fig svg { margin: 0; }
+.fig figcaption {
+	font-size: 0.78rem;
+	color: var(--comment);
+	margin-top: 10px;
+	text-align: center;
+}
+
+details {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	padding: 12px 16px;
+	margin: 12px 0;
+}
+details summary {
+	cursor: pointer;
+	color: var(--yellow);
+	font-size: 0.9rem;
+	font-weight: 600;
+}
+details[open] summary { margin-bottom: 12px; }
+
+.ex {
+	border: 1px solid var(--yellow);
+	background: rgba(224, 175, 104, 0.06);
+	padding: 16px;
+	margin: 28px 0;
+}
+.ex h4 {
+	margin: 0 0 10px;
+	font-size: 0.95rem;
+	color: var(--yellow);
+}
+
+ul, ol { padding-left: 22px; }
+li { margin: 6px 0; }
+
+hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+
+.toc {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	padding: 16px 20px;
+	margin-bottom: 48px;
+}
+.toc ol { margin: 0; padding-left: 20px; }
+.toc a { color: var(--fg-dim); text-decoration: none; }
+.toc a:hover { color: var(--cyan); }
+
+strong { color: var(--fg); font-weight: 700; }
+em { color: var(--yellow); font-style: normal; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+	<h1>バックエンド / API の基礎</h1>
+	<p>SvelteKit のデータ取得コードを「読める」ようになるための土台 — TS学習 Lv5 到達時点からの接続</p>
+</header>
+
+<div class="toc">
+	<ol>
+		<li><a href="#ch0">いま分かっていないのは実は2つだけ</a></li>
+		<li><a href="#ch1">2台のコンピュータ</a></li>
+		<li><a href="#ch2">API = 他人のコンピュータの関数を呼ぶ</a></li>
+		<li><a href="#ch3">HTTP — 問い合わせの作法</a></li>
+		<li><a href="#ch4">JSON — 運ばれてくる形</a></li>
+		<li><a href="#ch5">なぜ「待つ」必要があるのか（非同期）</a></li>
+		<li><a href="#ch6">コードはどこで動くのか</a></li>
+		<li><a href="#ch7">なぜ API キーをサーバーに置くのか</a></li>
+		<li><a href="#ch8">load / entries / $types</a></li>
+		<li><a href="#ch9">全体を1枚で</a></li>
+	</ol>
+</div>
+
+<!-- ============================================ 0 -->
+<h2 id="ch0"><span class="num">Chapter 0</span>いま分かっていないのは実は2つだけ</h2>
+
+<p>結論から言います。<strong>あなたは既に必要なものの8割を持っています。</strong></p>
+
+<p>Lv1〜Lv5 で書いてきたコードを思い出してください。たとえば問9 <code>namesAbove</code> はこういう形でした。</p>
+
+<pre><code><span class="c">// あなたが書いてきたコード</span>
+<span class="k">const</span> products: Product[] = [
+    { name: <span class="s">'ペン'</span>, price: <span class="n">120</span> },
+    { name: <span class="s">'ノート'</span>, price: <span class="n">300</span> }
+];
+
+<span class="k">const</span> <span class="f">namesAbove</span> = (items: Product[], min: <span class="t">number</span>): <span class="t">string</span>[] =&gt;
+    items.<span class="f">filter</span>((p) =&gt; p.price &gt; min).<span class="f">map</span>((p) =&gt; p.name);</code></pre>
+
+<p>今回やることは、本質的にはこれと同じです。<strong>違うのは配列の出どころだけ</strong>です。</p>
+
+<pre><code><span class="c">// これからやること</span>
+<span class="k">const</span> works = <span class="k">await</span> <span class="f">getWorks</span>();  <span class="c">// ← 配列が「別のコンピュータ」から来る</span>
+
+works.<span class="f">filter</span>(...).<span class="f">map</span>(...)      <span class="c">// ← ここから先は完全に同じ</span></code></pre>
+
+<div class="key">
+	<span class="label">この資料の核心</span>
+	新しいのは <strong>①データがどこから来るのか</strong> と <strong>②なぜ待つ必要があるのか</strong> の2つだけ。
+	データが手に入った後の加工は、あなたが45問かけて身につけたものがそのまま使えます。
+</div>
+
+<p>そして②の「待つ」は、<strong>あなたのカリキュラムの Lv6（問46〜50）そのもの</strong>です。つまり今つまずいているのは、能力の問題ではなく<em>まだ習っていないから</em>です。順番として自然です。</p>
+
+<div class="scroll">
+<table>
+	<tr><th>あなたが既に持っているもの</th><th>今回足すもの</th></tr>
+	<tr><td><code>.map</code> / <code>.filter</code> / <code>.reduce</code></td><td>データの入手経路（API）</td></tr>
+	<tr><td>Record 構築・動的キー</td><td>「待つ」構文（<code>async</code> / <code>await</code>）</td></tr>
+	<tr><td>判別可能ユニオン・<code>never</code> 網羅</td><td>コードが動く「場所」の概念</td></tr>
+	<tr><td>Result 型・fail-loud の発想</td><td>秘密（API キー）の置き場所</td></tr>
+	<tr><td>ジェネリクス <code>&lt;T&gt;</code> / <code>keyof</code></td><td>—（そのまま使う）</td></tr>
+</table>
+</div>
+
+<!-- ============================================ 1 -->
+<h2 id="ch1"><span class="num">Chapter 1</span>2台のコンピュータ</h2>
+
+<p>まず一番の基礎から。<strong>Web の世界には常に2台以上のコンピュータが登場します。</strong></p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 260" role="img" aria-label="クライアントとサーバーの関係図">
+	<rect x="30" y="60" width="200" height="130" fill="#1f2335" stroke="#7aa2f7" stroke-width="2"/>
+	<text x="130" y="90" fill="#7aa2f7" font-size="15" font-weight="700" text-anchor="middle">クライアント</text>
+	<text x="130" y="112" fill="#c0caf5" font-size="12" text-anchor="middle">あなたの Mac</text>
+	<text x="130" y="132" fill="#c0caf5" font-size="12" text-anchor="middle">ブラウザ</text>
+	<text x="130" y="160" fill="#565f89" font-size="11" text-anchor="middle">見る側 / 頼む側</text>
+
+	<rect x="490" y="60" width="200" height="130" fill="#1f2335" stroke="#9ece6a" stroke-width="2"/>
+	<text x="590" y="90" fill="#9ece6a" font-size="15" font-weight="700" text-anchor="middle">サーバー</text>
+	<text x="590" y="112" fill="#c0caf5" font-size="12" text-anchor="middle">microCMS</text>
+	<text x="590" y="132" fill="#c0caf5" font-size="12" text-anchor="middle">（どこかのデータセンター）</text>
+	<text x="590" y="160" fill="#565f89" font-size="11" text-anchor="middle">データを持つ側 / 答える側</text>
+
+	<line x1="240" y1="105" x2="470" y2="105" stroke="#e0af68" stroke-width="2" marker-end="url(#a1)"/>
+	<text x="355" y="96" fill="#e0af68" font-size="12" text-anchor="middle">① ください（リクエスト）</text>
+
+	<line x1="470" y1="150" x2="240" y2="150" stroke="#bb9af7" stroke-width="2" marker-end="url(#a2)"/>
+	<text x="355" y="170" fill="#bb9af7" font-size="12" text-anchor="middle">② どうぞ（レスポンス）</text>
+
+	<text x="355" y="225" fill="#565f89" font-size="11" text-anchor="middle">この往復に 0.1〜1秒 かかる ＝ 「待つ」の正体</text>
+
+	<defs>
+		<marker id="a1" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+			<polygon points="0 0, 9 4.5, 0 9" fill="#e0af68"/>
+		</marker>
+		<marker id="a2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+			<polygon points="0 0, 9 4.5, 0 9" fill="#bb9af7"/>
+		</marker>
+	</defs>
+</svg>
+<figcaption>図1: クライアントとサーバー。物理的に別の機械で、間に「距離」がある</figcaption>
+</figure>
+
+<p><strong>「バックエンド」とは、この右側で動いているプログラムのこと</strong>です。職場で Rust を書いている方が担当している領域がこれです。</p>
+
+<p>今回の profile-site では、右側は自分では作りません。<strong>microCMS という他社のサービスを借りている</strong>ので、「データを持っていて、頼めば返してくれる誰か」がすでに用意されている状態です。</p>
+
+<div class="note">
+	<span class="label">用語の整理</span>
+	<strong>クライアント</strong>＝頼む側。ブラウザ、スマホアプリなど。<br>
+	<strong>サーバー</strong>＝答える側。ずっと起動していて、頼まれるのを待っている機械。<br>
+	この2つは「役割の名前」であって、機械の種類ではありません。あなたの Mac も、プログラムを動かせばサーバーになります（<code>bun run dev</code> がまさにそれです）。
+</div>
+
+<h3>なぜ分かれているのか</h3>
+
+<p>データを1箇所に集めておかないと困るからです。あなたの Mac の中だけに記事データがあったら、他の人はそれを見られません。<strong>共有したいものは、常時起動している1箇所に置く</strong>。それがサーバーの存在理由です。</p>
+
+<!-- ============================================ 2 -->
+<h2 id="ch2"><span class="num">Chapter 2</span>API = 他人のコンピュータの関数を呼ぶ</h2>
+
+<p>ここが一番の飛躍点なので、あなたが既に知っている概念に繋げます。</p>
+
+<p>あなたはこう書いてきました。</p>
+
+<pre><code><span class="k">const</span> result = <span class="f">totalPrice</span>(products);
+<span class="c">//             ↑ 同じファイル、同じメモリの中にある関数</span></code></pre>
+
+<p><strong>API とは、これを「別の機械にある関数」に対してやること</strong>です。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 300" role="img" aria-label="ローカル関数呼び出しとAPI呼び出しの対比">
+	<text x="180" y="28" fill="#7aa2f7" font-size="13" font-weight="700" text-anchor="middle">いつもの関数呼び出し</text>
+	<rect x="40" y="45" width="280" height="90" fill="#1f2335" stroke="#3b4261"/>
+	<text x="180" y="72" fill="#c0caf5" font-size="12" text-anchor="middle">同じファイルの中</text>
+	<text x="180" y="98" fill="#73daca" font-size="12" font-family="monospace" text-anchor="middle">totalPrice(products)</text>
+	<text x="180" y="120" fill="#9ece6a" font-size="11" text-anchor="middle">→ 即座に値が返る</text>
+
+	<text x="540" y="28" fill="#e0af68" font-size="13" font-weight="700" text-anchor="middle">API 呼び出し</text>
+	<rect x="400" y="45" width="280" height="90" fill="#1f2335" stroke="#3b4261"/>
+	<text x="540" y="72" fill="#c0caf5" font-size="12" text-anchor="middle">ネットワークの向こう側</text>
+	<text x="540" y="98" fill="#73daca" font-size="12" font-family="monospace" text-anchor="middle">getWorks()</text>
+	<text x="540" y="120" fill="#ff9e64" font-size="11" text-anchor="middle">→ 値が返るまで時間がかかる</text>
+
+	<rect x="40" y="170" width="640" height="100" fill="#16161e" stroke="#3b4261"/>
+	<text x="360" y="196" fill="#bb9af7" font-size="12" font-weight="700" text-anchor="middle">見た目はどちらも「関数を呼ぶ」だけ</text>
+	<text x="360" y="222" fill="#c0caf5" font-size="11" text-anchor="middle">違いは ① 時間がかかる ② 失敗しうる（相手が落ちている / ネットが切れる）</text>
+	<text x="360" y="246" fill="#f7768e" font-size="11" text-anchor="middle">この2つが、非同期とエラー処理が必要になる理由のすべて</text>
+</svg>
+<figcaption>図2: API 呼び出しは「遠い関数呼び出し」。時間と失敗が加わる</figcaption>
+</figure>
+
+<p><strong>API（Application Programming Interface）</strong>とは、直訳すれば「プログラムから使うための窓口」です。microCMS は「この URL にこうやって頼めば、記事データを返します」という窓口を公開しています。</p>
+
+<p>あなたが書いた <code>src/lib/server/microcms.ts</code> は、<strong>その窓口を、いつもの関数の見た目に包んだもの</strong>です。</p>
+
+<pre><code><span class="k">export const</span> <span class="f">getWorks</span> = (): <span class="t">Promise</span>&lt;Work[]&gt; =&gt;
+    client.<span class="f">getAllContents</span>&lt;Work&gt;({ endpoint: <span class="s">'works'</span>, queries: { orders: <span class="s">'order'</span> } });</code></pre>
+
+<p>この <code>Promise&lt;Work[]&gt;</code> という戻り値の型が「時間がかかる」ことを表しています。次章以降で分解します。</p>
+
+<div class="ex">
+	<h4>演習 2-1</h4>
+	<p>あなたがこれまで書いた関数のうち、「API に置き換えても呼び出し側の書き方がほとんど変わらないもの」を1つ挙げ、その理由を説明してください。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p>たとえば問11 <code>findByName(items, name)</code>。呼び出し側は「名前を渡すと商品が1件返る（無ければ <code>undefined</code>）」としか知りません。<strong>中身が配列の <code>.find</code> でも、データベースへの問い合わせでも、呼び出し側の関心事は変わらない</strong>からです。</p>
+		<p>これが<em>インターフェース</em>という考え方です。「何を渡すと何が返るか」だけを約束し、中身を隠す。<code>API</code> の <code>I</code> はこの Interface です。</p>
+		<p>ただし1つだけ変わります。戻り値が <code>Product | undefined</code> から <code>Promise&lt;Product | undefined&gt;</code> になり、<code>await</code> が必要になる。<strong>「待つ」は隠しきれない</strong>のです。この点は第5章で扱います。</p>
+	</details>
+</div>
+
+<!-- ============================================ 3 -->
+<h2 id="ch3"><span class="num">Chapter 3</span>HTTP — 問い合わせの作法</h2>
+
+<p>「頼む」と言っても、相手は機械です。決まった形式でないと理解されません。その形式が <strong>HTTP</strong> です。</p>
+
+<h3>リクエスト（頼む側）に含まれるもの</h3>
+
+<div class="scroll">
+<table>
+	<tr><th>要素</th><th>意味</th><th>今回の実例</th></tr>
+	<tr><td>URL</td><td>どこの何が欲しいか</td><td><code>https://xxx.microcms.io/api/v1/works</code></td></tr>
+	<tr><td>メソッド</td><td>何をしたいか</td><td><code>GET</code>（取得したい）</td></tr>
+	<tr><td>ヘッダ</td><td>付帯情報・身分証</td><td><code>X-MICROCMS-API-KEY: xxxx</code></td></tr>
+	<tr><td>ボディ</td><td>送るデータ</td><td>GET では使わない</td></tr>
+</table>
+</div>
+
+<p>メソッドは動詞だと思ってください。あなたが Lv5 でやった CRUD と対応します。</p>
+
+<div class="scroll">
+<table>
+	<tr><th>HTTP メソッド</th><th>意味</th><th>あなたが書いた対応物</th></tr>
+	<tr><td><code>GET</code></td><td>取得</td><td>問11 <code>findByName</code></td></tr>
+	<tr><td><code>POST</code></td><td>新規作成</td><td>問39 <code>addTodo</code></td></tr>
+	<tr><td><code>PUT</code> / <code>PATCH</code></td><td>更新</td><td>問37 <code>toggleTodo</code></td></tr>
+	<tr><td><code>DELETE</code></td><td>削除</td><td>問38 <code>removeTodo</code></td></tr>
+</table>
+</div>
+
+<div class="key">
+	<span class="label">重要な違い</span>
+	あなたの CRUD は<strong>不変更新</strong>でした（元を壊さず新しい配列を返す）。
+	一方サーバーの <code>POST</code> / <code>DELETE</code> は<strong>本当にデータを書き換えます</strong>。取り消せません。
+	だから <code>GET</code> 以外は慎重に扱います。今回のサイトは読むだけなので <code>GET</code> しか使いません。
+</div>
+
+<h3>レスポンス（答える側）— ステータスコード</h3>
+
+<p>返事の1行目には必ず3桁の番号が付きます。<strong>これは実際にあなたが今週遭遇したものです。</strong></p>
+
+<div class="scroll">
+<table>
+	<tr><th>番号</th><th>意味</th><th>実際に起きたこと</th></tr>
+	<tr><td><code style="color:#9ece6a">200</code></td><td>成功</td><td>正しいキーで <code>/works</code> を叩いたとき</td></tr>
+	<tr><td><code style="color:#e0af68">401</code></td><td>認証されていない</td><td>API キーを付けずに叩いたとき</td></tr>
+	<tr><td><code style="color:#e0af68">404</code></td><td>そんなものは無い</td><td><code>works</code> をまだ作っていなかったとき</td></tr>
+	<tr><td><code style="color:#f7768e">500</code></td><td>サーバー側で異常が起きた</td><td>キーの値に日本語が混じっていたとき</td></tr>
+</table>
+</div>
+
+<p>番号の先頭桁で大まかな分類ができます。</p>
+
+<ul>
+	<li><strong>2xx</strong> — 成功</li>
+	<li><strong>4xx</strong> — <em>頼み方が悪い</em>（クライアントの責任）</li>
+	<li><strong>5xx</strong> — <em>相手側で壊れた</em>（サーバーの責任）</li>
+</ul>
+
+<div class="note">
+	<span class="label">デバッグの実際</span>
+	この分類が切り分けの起点になります。<strong>4xx なら自分のコードを疑い、5xx なら相手を疑う。</strong><br>
+	実際、API キーの調査では「キー無し → 401」「でたらめなキー → 401」「実際のキー → 500」という差から、
+	<em>「キーが間違っている」のではなく「キーの中身が異常」</em>だと特定できました。
+	500 が返る＝相手のプログラムが処理しきれなかった、という意味だからです。
+</div>
+
+<div class="ex">
+	<h4>演習 3-1</h4>
+	<p>あなたのサイトが公開された後、ブラウザで <code>/works/存在しないID</code> を開いたら何が起きるでしょうか。静的生成（prerender）していることを踏まえて考えてください。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><strong>microCMS には一切問い合わせが行きません。</strong> ビルド時に生成した HTML ファイルが並んでいるだけなので、存在しない URL は「ファイルが無い」＝ホスティング側が 404 を返して終わりです。</p>
+		<p>ここが静的生成の性質です。<em>実行時にはサーバーのプログラムが動いていない</em>ので、動的な判断が一切できません。その代わり速く、壊れにくく、安い。</p>
+		<p>これは第6章の「コードがどこで動くか」に直結します。</p>
+	</details>
+</div>
+
+<!-- ============================================ 4 -->
+<h2 id="ch4"><span class="num">Chapter 4</span>JSON — 運ばれてくる形</h2>
+
+<p>ネットワークを通れるのは<strong>文字列（正確にはバイト列）だけ</strong>です。TypeScript のオブジェクトをそのまま送ることはできません。</p>
+
+<p>そこで、オブジェクトを文字列に変換する共通ルールが決められています。それが <strong>JSON</strong> です。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 240" role="img" aria-label="JSONの変換">
+	<rect x="20" y="40" width="190" height="110" fill="#1f2335" stroke="#9ece6a" stroke-width="2"/>
+	<text x="115" y="64" fill="#9ece6a" font-size="12" font-weight="700" text-anchor="middle">サーバーのメモリ</text>
+	<text x="115" y="92" fill="#c0caf5" font-size="10" font-family="monospace" text-anchor="middle">{ title: "Profile Site",</text>
+	<text x="115" y="110" fill="#c0caf5" font-size="10" font-family="monospace" text-anchor="middle">&#160;&#160;order: 1 }</text>
+	<text x="115" y="136" fill="#565f89" font-size="10" text-anchor="middle">オブジェクト</text>
+
+	<rect x="265" y="40" width="190" height="110" fill="#1f2335" stroke="#e0af68" stroke-width="2"/>
+	<text x="360" y="64" fill="#e0af68" font-size="12" font-weight="700" text-anchor="middle">ネットワーク上</text>
+	<text x="360" y="92" fill="#e0af68" font-size="10" font-family="monospace" text-anchor="middle">'{"title":"Profile</text>
+	<text x="360" y="110" fill="#e0af68" font-size="10" font-family="monospace" text-anchor="middle">Site","order":1}'</text>
+	<text x="360" y="136" fill="#565f89" font-size="10" text-anchor="middle">ただの文字列</text>
+
+	<rect x="510" y="40" width="190" height="110" fill="#1f2335" stroke="#7aa2f7" stroke-width="2"/>
+	<text x="605" y="64" fill="#7aa2f7" font-size="12" font-weight="700" text-anchor="middle">あなたのコード</text>
+	<text x="605" y="92" fill="#c0caf5" font-size="10" font-family="monospace" text-anchor="middle">{ title: "Profile Site",</text>
+	<text x="605" y="110" fill="#c0caf5" font-size="10" font-family="monospace" text-anchor="middle">&#160;&#160;order: 1 }</text>
+	<text x="605" y="136" fill="#565f89" font-size="10" text-anchor="middle">オブジェクトに戻る</text>
+
+	<line x1="215" y1="95" x2="260" y2="95" stroke="#565f89" stroke-width="2" marker-end="url(#a3)"/>
+	<line x1="460" y1="95" x2="505" y2="95" stroke="#565f89" stroke-width="2" marker-end="url(#a3)"/>
+
+	<text x="237" y="180" fill="#565f89" font-size="10" text-anchor="middle">stringify</text>
+	<text x="482" y="180" fill="#565f89" font-size="10" text-anchor="middle">parse</text>
+
+	<text x="360" y="215" fill="#f7768e" font-size="11" text-anchor="middle">この往復で「型」は完全に失われる ← 第7章・Lv7 の話につながる</text>
+
+	<defs>
+		<marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+			<polygon points="0 0, 8 4, 0 8" fill="#565f89"/>
+		</marker>
+	</defs>
+</svg>
+<figcaption>図3: JSON は「オブジェクトを文字列にして運ぶ」ためのルール</figcaption>
+</figure>
+
+<div class="warn">
+	<span class="label">あなたの興味に直結する重要点</span>
+	<p><strong><code>JSON.parse()</code> の戻り値の型は <code>any</code> です。</strong>（<code>unknown</code> ですらありません）</p>
+	<p>つまり TypeScript の型検査を<em>完全にすり抜けます</em>。実際には <code>{ title: 123 }</code> が来ているのに <code>Work</code> だと言い張っても、コンパイルは通ってしまう。</p>
+	<p>これがあなたのカリキュラム <strong>Lv7「境界の型付けと検証」</strong>で扱う穴そのものです。<code>unknown</code> に絞ってユーザー定義型ガードで検証する、という話は、まさにこの JSON の境界のためにあります。</p>
+	<p>今回 <code>microcms-js-sdk</code> を使っているのは、この面倒を SDK が肩代わりしてくれるからです。ただし<em>SDK も実際には中身を検証していません</em>。<code>getWorks&lt;Work&gt;()</code> の <code>&lt;Work&gt;</code> は「そう思って扱え」という指示であって、保証ではありません。</p>
+</div>
+
+<div class="ex">
+	<h4>演習 4-1</h4>
+	<p>microCMS 側で誰かが <code>order</code> フィールドを数字からテキストに変更したとします。あなたのコードはどうなるでしょうか。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><strong>TypeScript は何も言いません。ビルドも通ります。</strong> 型は <code>order?: number</code> のままなので、コンパイラは「数値だ」と信じ続けます。</p>
+		<p>壊れるのは実行時です。たとえば <code>a.order - b.order</code> で並べ替えていたら <code>NaN</code> になり、並び順が静かに壊れる。<em>エラーも出ずに間違った結果が出る</em>のが最悪のパターンです。</p>
+		<p>これがあなたが強い関心を持っている「境界の検証」が必要な理由です。<strong>型注釈は自分との約束であって、外の世界とは無関係</strong>。外から来たデータは検証しない限り信用できません。</p>
+		<p>fail-loud の思想で言えば、「変な値が来たら派手に落ちる」ようにしておくべき箇所です。</p>
+	</details>
+</div>
+
+<!-- ============================================ 5 -->
+<h2 id="ch5"><span class="num">Chapter 5</span>なぜ「待つ」必要があるのか（非同期）</h2>
+
+<p>ここがあなたの Lv6 の内容です。先取りして基礎だけ押さえます。</p>
+
+<h3>問題設定</h3>
+
+<p>これまでのコードは<strong>上から順に、一瞬で</strong>実行されていました。</p>
+
+<pre><code><span class="k">const</span> a = <span class="f">totalPrice</span>(products);  <span class="c">// 0.00001 秒</span>
+<span class="k">const</span> b = a * <span class="n">1.1</span>;              <span class="c">// この時点で a は確実に入っている</span></code></pre>
+
+<p>しかし API 呼び出しは <strong>0.1〜1秒</strong> かかります。その間プログラムを止めてしまうと、ブラウザは固まります。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 280" role="img" aria-label="同期と非同期の比較">
+	<text x="360" y="24" fill="#c0caf5" font-size="13" font-weight="700" text-anchor="middle">もし「止まって待つ」としたら</text>
+	<rect x="40" y="40" width="120" height="34" fill="#1f2335" stroke="#9ece6a"/>
+	<text x="100" y="62" fill="#9ece6a" font-size="11" text-anchor="middle">計算する</text>
+	<rect x="170" y="40" width="380" height="34" fill="#2d1f26" stroke="#f7768e"/>
+	<text x="360" y="62" fill="#f7768e" font-size="11" text-anchor="middle">API を待つ（この間ブラウザが固まる）</text>
+	<rect x="560" y="40" width="120" height="34" fill="#1f2335" stroke="#9ece6a"/>
+	<text x="620" y="62" fill="#9ece6a" font-size="11" text-anchor="middle">表示する</text>
+
+	<text x="360" y="120" fill="#c0caf5" font-size="13" font-weight="700" text-anchor="middle">実際の JavaScript の動き（非同期）</text>
+	<rect x="40" y="136" width="120" height="34" fill="#1f2335" stroke="#9ece6a"/>
+	<text x="100" y="158" fill="#9ece6a" font-size="11" text-anchor="middle">頼む</text>
+	<rect x="170" y="136" width="120" height="34" fill="#1f2335" stroke="#7aa2f7"/>
+	<text x="230" y="158" fill="#7aa2f7" font-size="11" text-anchor="middle">別のことをする</text>
+	<rect x="300" y="136" width="120" height="34" fill="#1f2335" stroke="#7aa2f7"/>
+	<text x="360" y="158" fill="#7aa2f7" font-size="11" text-anchor="middle">別のことをする</text>
+	<rect x="430" y="136" width="140" height="34" fill="#1f2335" stroke="#bb9af7"/>
+	<text x="500" y="158" fill="#bb9af7" font-size="11" text-anchor="middle">返事が来た！</text>
+	<rect x="580" y="136" width="100" height="34" fill="#1f2335" stroke="#9ece6a"/>
+	<text x="630" y="158" fill="#9ece6a" font-size="11" text-anchor="middle">表示する</text>
+
+	<rect x="40" y="200" width="640" height="60" fill="#16161e" stroke="#3b4261"/>
+	<text x="360" y="224" fill="#e0af68" font-size="11" text-anchor="middle">「返事が来たら、この続きをやってくれ」と予約しておくのが非同期</text>
+	<text x="360" y="246" fill="#565f89" font-size="11" text-anchor="middle">await は「予約」を、同期コードのような見た目で書くための構文</text>
+</svg>
+<figcaption>図4: 待っている間もプログラムは他のことができる</figcaption>
+</figure>
+
+<h3>Promise — 「あとで値が入る箱」</h3>
+
+<p>あなたが Lv5 の問45 で扱っている <code>RemoteData&lt;T&gt;</code> を思い出してください。<strong>Promise はまさにあの考え方です。</strong></p>
+
+<pre><code><span class="c">// 問45 であなたが定義する型（4状態の判別可能ユニオン）</span>
+<span class="k">type</span> <span class="t">RemoteData</span>&lt;T&gt; =
+    | { status: <span class="s">'idle'</span> }
+    | { status: <span class="s">'loading'</span> }
+    | { status: <span class="s">'success'</span>; data: T }
+    | { status: <span class="s">'failure'</span>; error: <span class="t">string</span> };</code></pre>
+
+<p><code>Promise&lt;T&gt;</code> は、これを言語組み込みにしたものだと考えてください。</p>
+
+<div class="scroll">
+<table>
+	<tr><th>Promise の状態</th><th>意味</th><th>あなたの RemoteData</th></tr>
+	<tr><td>pending</td><td>まだ返事が来ていない</td><td><code>loading</code></td></tr>
+	<tr><td>fulfilled</td><td>値が入った</td><td><code>success</code></td></tr>
+	<tr><td>rejected</td><td>失敗した</td><td><code>failure</code></td></tr>
+</table>
+</div>
+
+<div class="key">
+	<span class="label">型の読み方</span>
+	<code>Promise&lt;Work[]&gt;</code> は <strong>「Work[] ではない」</strong>。<em>「いつか Work[] になる箱」</em>です。<br>
+	だから <code>.filter()</code> を直接呼ぶことはできません。箱から出す操作が必要で、それが <code>await</code> です。
+</div>
+
+<h3>async / await</h3>
+
+<pre><code><span class="c">// ✘ 箱のまま。works は Promise なので filter は無い</span>
+<span class="k">const</span> works = <span class="f">getWorks</span>();
+works.<span class="err">filter</span>(...);   <span class="c">// 型エラー</span>
+
+<span class="c">// ✔ await で箱を開ける</span>
+<span class="k">const</span> works = <span class="k">await</span> <span class="f">getWorks</span>();
+works.<span class="f">filter</span>(...);   <span class="c">// Work[] なので OK</span></code></pre>
+
+<p>ルールは2つだけです。</p>
+
+<ol>
+	<li><strong><code>await</code> は <code>async</code> を付けた関数の中でしか書けない</strong></li>
+	<li><strong><code>async</code> を付けた関数の戻り値は自動的に <code>Promise</code> で包まれる</strong></li>
+</ol>
+
+<pre><code><span class="k">const</span> <span class="f">load</span> = <span class="k">async</span> () =&gt; {          <span class="c">// ← async を付ける</span>
+    <span class="k">const</span> works = <span class="k">await</span> <span class="f">getWorks</span>();   <span class="c">// ← だから await が書ける</span>
+    <span class="k">return</span> { works };                <span class="c">// ← 実際の型は Promise&lt;{ works: Work[] }&gt;</span>
+};</code></pre>
+
+<div class="note">
+	<span class="label">よくある誤解</span>
+	<code>await</code> は「プログラム全体を止める」のではありません。<strong>その関数の中の続きを、返事が来るまで保留する</strong>だけです。
+	他の処理は動き続けます。図4の下段がその様子です。
+</div>
+
+<h3>直列と並列</h3>
+
+<p>これは実務で必ず指摘される点なので、いま覚えてしまってください。</p>
+
+<pre><code><span class="c">// 直列 — 遅い。works が終わってから posts を頼む</span>
+<span class="k">const</span> works = <span class="k">await</span> <span class="f">getWorks</span>();   <span class="c">// 0.3秒</span>
+<span class="k">const</span> posts = <span class="k">await</span> <span class="f">getPosts</span>();   <span class="c">// 0.3秒  → 合計 0.6秒</span>
+
+<span class="c">// 並列 — 速い。同時に頼んで、両方揃うのを待つ</span>
+<span class="k">const</span> [works, posts] = <span class="k">await</span> <span class="t">Promise</span>.<span class="f">all</span>([<span class="f">getWorks</span>(), <span class="f">getPosts</span>()]);
+<span class="c">//                                                        → 合計 0.3秒</span></code></pre>
+
+<p><strong>判断基準は「後の処理が前の結果に依存するか」</strong>です。依存しないなら並列にできます。依存するなら直列にせざるを得ません。</p>
+
+<div class="ex">
+	<h4>演習 5-1</h4>
+	<p>次のコードは並列にできますか。理由も答えてください。</p>
+	<pre><code><span class="k">const</span> ids = <span class="k">await</span> <span class="f">getWorkIds</span>();
+<span class="k">const</span> first = <span class="k">await</span> <span class="f">getWork</span>(ids[<span class="n">0</span>]);</code></pre>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><strong>できません。</strong> <code>getWork</code> に渡す引数が <code>getWorkIds</code> の結果だからです。ID が分からないうちは2つ目を頼めません。<em>依存関係があるものは直列にするしかない</em>という典型例です。</p>
+		<p>補足として、<code>ids[0]</code> はあなたの tsconfig（<code>noUncheckedIndexedAccess</code>）だと <code>string | undefined</code> になります。これはあなたが「弱点4」として指導を受けた<em>「undefinedが実際に湧く場所＝添字アクセス」</em>そのものです。ガードが要ります。</p>
+	</details>
+</div>
+
+<!-- ============================================ 6 -->
+<h2 id="ch6"><span class="num">Chapter 6</span>コードはどこで動くのか</h2>
+
+<p><strong>ここが SvelteKit で最も重要な概念です。</strong> ファイル名の <code>.server</code> が何を意味するか、ここで分かります。</p>
+
+<p>これまであなたが書いてきた <code>.ts</code> は、<code>bun</code> で実行する＝<em>あなたの Mac の中だけ</em>で動いていました。ところが Web アプリでは、書いたコードが<strong>3つの異なる場所</strong>のどれかで動きます。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 400" role="img" aria-label="コードが動く3つの場所">
+	<rect x="20" y="30" width="210" height="150" fill="#1f2335" stroke="#bb9af7" stroke-width="2"/>
+	<text x="125" y="56" fill="#bb9af7" font-size="13" font-weight="700" text-anchor="middle">① ビルド時</text>
+	<text x="125" y="78" fill="#565f89" font-size="10" text-anchor="middle">bun run build を打った瞬間</text>
+	<line x1="40" y1="90" x2="210" y2="90" stroke="#3b4261"/>
+	<text x="125" y="112" fill="#c0caf5" font-size="11" text-anchor="middle">あなたの Mac</text>
+	<text x="125" y="134" fill="#73daca" font-size="10" font-family="monospace" text-anchor="middle">+page.server.ts</text>
+	<text x="125" y="158" fill="#9ece6a" font-size="10" text-anchor="middle">API キーを使える ✔</text>
+
+	<rect x="255" y="30" width="210" height="150" fill="#1f2335" stroke="#565f89" stroke-width="2" stroke-dasharray="5 4"/>
+	<text x="360" y="56" fill="#565f89" font-size="13" font-weight="700" text-anchor="middle">② 実行時のサーバー</text>
+	<text x="360" y="78" fill="#565f89" font-size="10" text-anchor="middle">今回は使わない</text>
+	<line x1="275" y1="90" x2="445" y2="90" stroke="#3b4261"/>
+	<text x="360" y="112" fill="#565f89" font-size="11" text-anchor="middle">全ルート prerender なので</text>
+	<text x="360" y="134" fill="#565f89" font-size="11" text-anchor="middle">実行時にサーバーは動かない</text>
+	<text x="360" y="158" fill="#565f89" font-size="10" text-anchor="middle">（Workers 移行時に一部復活）</text>
+
+	<rect x="490" y="30" width="210" height="150" fill="#1f2335" stroke="#7aa2f7" stroke-width="2"/>
+	<text x="595" y="56" fill="#7aa2f7" font-size="13" font-weight="700" text-anchor="middle">③ ブラウザ</text>
+	<text x="595" y="78" fill="#565f89" font-size="10" text-anchor="middle">閲覧者の端末</text>
+	<line x1="510" y1="90" x2="680" y2="90" stroke="#3b4261"/>
+	<text x="595" y="112" fill="#c0caf5" font-size="11" text-anchor="middle">見知らぬ他人の PC</text>
+	<text x="595" y="134" fill="#73daca" font-size="10" font-family="monospace" text-anchor="middle">+page.svelte</text>
+	<text x="595" y="158" fill="#f7768e" font-size="10" text-anchor="middle">API キーは絶対に置けない ✘</text>
+
+	<rect x="20" y="215" width="680" height="160" fill="#16161e" stroke="#3b4261"/>
+	<text x="360" y="242" fill="#e0af68" font-size="12" font-weight="700" text-anchor="middle">ファイル名が「動く場所」を決めている</text>
+
+	<text x="60" y="276" fill="#73daca" font-size="11" font-family="monospace">+page.server.ts</text>
+	<text x="260" y="276" fill="#c0caf5" font-size="11">→ ①だけ。ブラウザには絶対に送られない</text>
+
+	<text x="60" y="306" fill="#73daca" font-size="11" font-family="monospace">+page.ts</text>
+	<text x="260" y="306" fill="#c0caf5" font-size="11">→ ①でも③でも動く（＝秘密を置けない）</text>
+
+	<text x="60" y="336" fill="#73daca" font-size="11" font-family="monospace">+page.svelte</text>
+	<text x="260" y="336" fill="#c0caf5" font-size="11">→ ③で動く（画面の描画）</text>
+
+	<text x="360" y="364" fill="#565f89" font-size="10" text-anchor="middle">「.server が付いているか」だけで、秘密を置けるかが決まる</text>
+</svg>
+<figcaption>図5: 同じ TypeScript でも、ファイル名によって動く場所が変わる</figcaption>
+</figure>
+
+<div class="key">
+	<span class="label">今回の構成で最も大事な一文</span>
+	全ルートに <code>prerender = true</code> を指定しているので、<strong><code>+page.server.ts</code> は
+	<code>bun run build</code> を打った時に1回だけ実行され、結果が HTML に焼き込まれます。</strong><br>
+	公開後、閲覧者がページを開いても microCMS には一切問い合わせが行きません。
+</div>
+
+<p>この性質から、いくつか実務的な帰結があります。</p>
+
+<div class="scroll">
+<table>
+	<tr><th>やりたいこと</th><th>結果</th></tr>
+	<tr><td><code>console.log</code> でデバッグ</td><td>出力先は<strong>ビルドを打ったターミナル</strong>。ブラウザのコンソールではない</td></tr>
+	<tr><td>記事を更新して反映</td><td>再ビルドが必要（だから Webhook で自動ビルドを仕込む）</td></tr>
+	<tr><td>アクセスした人ごとに違う内容を出す</td><td><strong>できない</strong>。全員が同じ HTML を見る</td></tr>
+	<tr><td>表示速度</td><td>非常に速い。ファイルを返すだけ</td></tr>
+</table>
+</div>
+
+<div class="ex">
+	<h4>演習 6-1</h4>
+	<p>なぜ <code>+page.ts</code>（<code>.server</code> なし）には API キーを書いてはいけないのでしょうか。図5を見ながら説明してください。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><code>+page.ts</code> は<strong>ブラウザでも動く</strong>からです。ブラウザで動くということは、そのコードが閲覧者の PC にダウンロードされるということ。つまり<em>誰でも中身を読めます</em>。</p>
+		<p>実際 SvelteKit は、<code>+page.ts</code> から <code>$env/static/private</code> を import すると<strong>ビルドを失敗させます</strong>。うっかりでは漏らせない仕組みになっています。</p>
+		<p>これは <code>$lib/server/</code> ディレクトリも同じで、クライアント側から import した瞬間にビルドが落ちます。<em>規約ではなく仕組みで守られている境界</em>は貴重なので、API キーに触るコードは必ずここに置きます。</p>
+	</details>
+</div>
+
+<!-- ============================================ 7 -->
+<h2 id="ch7"><span class="num">Chapter 7</span>なぜ API キーをサーバーに置くのか</h2>
+
+<p>ここは短く、しかし決定的に重要です。</p>
+
+<p><strong>ブラウザに送られたコードは、全部読めます。</strong> 難読化しても、圧縮しても、読めます。開発者ツールを開けば誰でも見られる。</p>
+
+<pre><code><span class="c">// もしブラウザで動くコードにこう書いたら</span>
+<span class="k">const</span> key = <span class="s">'abc123...'</span>;   <span class="c">// ← 世界中に公開しているのと同じ</span></code></pre>
+
+<p>API キーが漏れると、第三者があなたの microCMS に対して自由に読み書きできます。記事の削除も可能です。</p>
+
+<div class="key">
+	<span class="label">今回の構成が安全な理由</span>
+	<ol style="margin:6px 0">
+		<li>キーは <code>.env</code> に書いてある（<code>.gitignore</code> 済み）</li>
+		<li>読むのは <code>$lib/server/microcms.ts</code> だけ</li>
+		<li>そこは <code>+page.server.ts</code> からしか呼ばれない</li>
+		<li>それはビルド時にしか動かない</li>
+		<li><strong>結果、キーは生成された HTML のどこにも含まれない</strong></li>
+	</ol>
+</div>
+
+<p>この5段の連鎖が、あなたが作った構成です。1つでも崩れると漏れます。</p>
+
+<!-- ============================================ 8 -->
+<h2 id="ch8"><span class="num">Chapter 8</span>load / entries / $types</h2>
+
+<p>ここまでの土台の上で、ようやく本題です。3つしかありません。</p>
+
+<h3>load — データを取ってきて渡す</h3>
+
+<p>SvelteKit との約束は<strong>「<code>load</code> という名前で export した関数の戻り値が、画面に <code>data</code> として届く」</strong>だけです。</p>
+
+<pre><code><span class="c">// +page.server.ts</span>
+<span class="k">export const</span> <span class="f">load</span> = <span class="k">async</span> () =&gt; {
+    <span class="k">const</span> works = <span class="k">await</span> <span class="f">getWorks</span>();
+    <span class="k">return</span> { works };        <span class="c">// ← このオブジェクトが data になる</span>
+};</code></pre>
+
+<pre><code><span class="c">// +page.svelte</span>
+<span class="k">let</span> { data } = $<span class="f">props</span>();
+data.works                     <span class="c">// ← 上で return した works が入っている</span></code></pre>
+
+<div class="note">
+	<span class="label">なぜ「返す」だけで届くのか</span>
+	これは SvelteKit が決めた<strong>規約</strong>です。フォルダ名・ファイル名・export 名の組み合わせで
+	フレームワークが自動的に繋いでくれます。あなたが import して呼び出すわけではありません。<br>
+	<em>「規約に従うと勝手に動く」</em>のがフレームワークの正体です。慣れるまで気持ち悪いですが、
+	覚えるべきルールが減るという利点があります。
+</div>
+
+<h3>entries — どのページを作るか列挙する</h3>
+
+<p>これは <code>[id]</code> が付いた<strong>動的ルートだけ</strong>に必要です。</p>
+
+<p>静的生成では、<em>ビルド時に全ページを作りきる</em>必要があります。ところが <code>/works/[id]</code> の <code>[id]</code> には無限の可能性があるので、SvelteKit は何を作ればいいか分かりません。それを教えるのが <code>entries</code> です。</p>
+
+<pre><code><span class="k">export const</span> <span class="f">entries</span> = <span class="k">async</span> () =&gt; {
+    <span class="k">const</span> ids = <span class="k">await</span> <span class="f">getWorkIds</span>();   <span class="c">// ['profile-site']</span>
+    <span class="k">return</span> ids.<span class="f">map</span>((id) =&gt; ({ id }));   <span class="c">// [{ id: 'profile-site' }]</span>
+};</code></pre>
+
+<p><strong>この <code>.map</code> は、あなたが問4から使っているものと完全に同じ</strong>です。文字列の配列を、オブジェクトの配列に変換しているだけ。</p>
+
+<p>返した数だけページが生成されます。</p>
+
+<figure class="fig">
+<svg viewBox="0 0 720 200" role="img" aria-label="entriesがページを生成する流れ">
+	<rect x="20" y="50" width="150" height="70" fill="#1f2335" stroke="#7aa2f7" stroke-width="2"/>
+	<text x="95" y="76" fill="#7aa2f7" font-size="11" font-weight="700" text-anchor="middle">entries()</text>
+	<text x="95" y="100" fill="#73daca" font-size="10" font-family="monospace" text-anchor="middle">[{id:'profile-site'}]</text>
+
+	<rect x="230" y="50" width="150" height="70" fill="#1f2335" stroke="#bb9af7" stroke-width="2"/>
+	<text x="305" y="76" fill="#bb9af7" font-size="11" font-weight="700" text-anchor="middle">load({ params })</text>
+	<text x="305" y="100" fill="#73daca" font-size="10" font-family="monospace" text-anchor="middle">params.id = 'profile-site'</text>
+
+	<rect x="440" y="50" width="150" height="70" fill="#1f2335" stroke="#9ece6a" stroke-width="2"/>
+	<text x="515" y="76" fill="#9ece6a" font-size="11" font-weight="700" text-anchor="middle">HTML 生成</text>
+	<text x="515" y="100" fill="#c0caf5" font-size="9" font-family="monospace" text-anchor="middle">build/works/profile-site/</text>
+
+	<line x1="175" y1="85" x2="225" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#a4)"/>
+	<line x1="385" y1="85" x2="435" y2="85" stroke="#565f89" stroke-width="2" marker-end="url(#a4)"/>
+
+	<text x="360" y="160" fill="#e0af68" font-size="11" text-anchor="middle">entries が返した件数だけ load が呼ばれ、その数だけ HTML ができる</text>
+	<text x="360" y="182" fill="#f7768e" font-size="10" text-anchor="middle">0件を返すと「作るものが無い」＝ビルドエラー（今まさにこの状態だった）</text>
+
+	<defs>
+		<marker id="a4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+			<polygon points="0 0, 8 4, 0 8" fill="#565f89"/>
+		</marker>
+	</defs>
+</svg>
+<figcaption>図6: entries → load → HTML の流れ</figcaption>
+</figure>
+
+<h3>$types — 自動生成される型</h3>
+
+<p><code>./$types</code> という不思議な import 元は、<strong>SvelteKit がフォルダ構成から自動生成した型</strong>です。手で書きません。</p>
+
+<pre><code><span class="c">// .svelte-kit/types/.../works/[id]/$types.d.ts に自動生成されている</span>
+<span class="k">type</span> <span class="t">RouteParams</span> = { id: <span class="t">string</span> };</code></pre>
+
+<p><strong><code>[id]</code> というフォルダ名から <code>{ id: string }</code> が導出されています。</strong> だから <code>params.id</code> に型が付き、<code>params.slug</code> と書き間違えるとコンパイルエラーになる。</p>
+
+<p>フォルダ名を <code>[slug]</code> に変えれば、型も自動的に <code>{ slug: string }</code> に変わります。<em>ファイル構成が型の源になっている</em>、というのがこの仕組みの面白いところです。</p>
+
+<div class="ex">
+	<h4>演習 8-1</h4>
+	<p>一覧ページ <code>/works</code>（<code>works/+page.server.ts</code>）に <code>entries</code> は必要でしょうか。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><strong>不要です。</strong> URL が <code>/works</code> で固定されており、<code>[id]</code> のような可変部分がないからです。作るページは1枚だけなので、列挙する必要がありません。</p>
+		<p>言い換えると、<code>entries</code> が必要なのは<em>「フォルダ名に <code>[]</code> が含まれるルート」だけ</em>です。</p>
+	</details>
+</div>
+
+<div class="ex">
+	<h4>演習 8-2</h4>
+	<p><code>load</code> の中で <code>await</code> を書き忘れて <code>return { works: getWorks() }</code> としたら、<code>+page.svelte</code> の <code>data.works</code> には何が入るでしょうか。</p>
+	<details>
+		<summary>解答例を見る</summary>
+		<p><strong>Promise（＝まだ中身の入っていない箱）が入ります。</strong> 当然 <code>.map</code> も <code>.length</code> も使えません。</p>
+		<p>型で言えば <code>Work[]</code> ではなく <code>Promise&lt;Work[]&gt;</code> です。これは第5章の「<code>Promise&lt;T&gt;</code> は <code>T</code> ではない」がそのまま効く場面です。</p>
+		<p>なお SvelteKit には Promise をそのまま返して段階的に表示する機能（ストリーミング）もありますが、<em>静的生成では使えません</em>。HTML を作りきるには全部揃っている必要があるからです。今回は必ず <code>await</code> してください。</p>
+	</details>
+</div>
+
+<!-- ============================================ 9 -->
+<h2 id="ch9"><span class="num">Chapter 9</span>全体を1枚で</h2>
+
+<figure class="fig">
+<svg viewBox="0 0 720 470" role="img" aria-label="全体のデータフロー">
+	<text x="360" y="26" fill="#bb9af7" font-size="14" font-weight="700" text-anchor="middle">bun run build を打った時に起きること</text>
+
+	<rect x="230" y="46" width="260" height="44" fill="#1f2335" stroke="#7aa2f7" stroke-width="2"/>
+	<text x="360" y="66" fill="#7aa2f7" font-size="11" font-weight="700" text-anchor="middle">entries() が呼ばれる</text>
+	<text x="360" y="82" fill="#565f89" font-size="9" text-anchor="middle">動的ルートのみ</text>
+
+	<rect x="230" y="112" width="260" height="52" fill="#1f2335" stroke="#e0af68" stroke-width="2"/>
+	<text x="360" y="132" fill="#e0af68" font-size="11" font-weight="700" text-anchor="middle">microCMS に HTTP GET</text>
+	<text x="360" y="150" fill="#565f89" font-size="9" text-anchor="middle">ヘッダに API キー / 返事は JSON 文字列</text>
+
+	<rect x="230" y="186" width="260" height="52" fill="#1f2335" stroke="#73daca" stroke-width="2"/>
+	<text x="360" y="206" fill="#73daca" font-size="11" font-weight="700" text-anchor="middle">JSON → オブジェクトに変換</text>
+	<text x="360" y="224" fill="#565f89" font-size="9" text-anchor="middle">SDK がやってくれる（検証はしていない）</text>
+
+	<rect x="230" y="260" width="260" height="52" fill="#1f2335" stroke="#bb9af7" stroke-width="2"/>
+	<text x="360" y="280" fill="#bb9af7" font-size="11" font-weight="700" text-anchor="middle">load() が data を返す</text>
+	<text x="360" y="298" fill="#565f89" font-size="9" text-anchor="middle">ここから先はあなたの得意領域</text>
+
+	<rect x="230" y="334" width="260" height="52" fill="#1f2335" stroke="#9ece6a" stroke-width="2"/>
+	<text x="360" y="354" fill="#9ece6a" font-size="11" font-weight="700" text-anchor="middle">+page.svelte が描画</text>
+	<text x="360" y="372" fill="#565f89" font-size="9" text-anchor="middle">.map で並べる ＝ 問4 と同じこと</text>
+
+	<rect x="230" y="408" width="260" height="44" fill="#16161e" stroke="#9ece6a" stroke-width="2"/>
+	<text x="360" y="428" fill="#9ece6a" font-size="11" font-weight="700" text-anchor="middle">HTML ファイルが出来上がる</text>
+	<text x="360" y="444" fill="#565f89" font-size="9" text-anchor="middle">build/works/profile-site/index.html</text>
+
+	<line x1="360" y1="90" x2="360" y2="108" stroke="#565f89" stroke-width="2" marker-end="url(#a5)"/>
+	<line x1="360" y1="164" x2="360" y2="182" stroke="#565f89" stroke-width="2" marker-end="url(#a5)"/>
+	<line x1="360" y1="238" x2="360" y2="256" stroke="#565f89" stroke-width="2" marker-end="url(#a5)"/>
+	<line x1="360" y1="312" x2="360" y2="330" stroke="#565f89" stroke-width="2" marker-end="url(#a5)"/>
+	<line x1="360" y1="386" x2="360" y2="404" stroke="#565f89" stroke-width="2" marker-end="url(#a5)"/>
+
+	<text x="70" y="140" fill="#f7768e" font-size="10">API キーを</text>
+	<text x="70" y="156" fill="#f7768e" font-size="10">使うのはここだけ</text>
+	<line x1="150" y1="145" x2="225" y2="140" stroke="#f7768e" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+	<text x="560" y="356" fill="#7aa2f7" font-size="10">あなたが手で</text>
+	<text x="560" y="372" fill="#7aa2f7" font-size="10">書く部分</text>
+	<line x1="555" y1="360" x2="495" y2="360" stroke="#7aa2f7" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+	<defs>
+		<marker id="a5" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+			<polygon points="0 0, 8 4, 0 8" fill="#565f89"/>
+		</marker>
+	</defs>
+</svg>
+<figcaption>図7: ビルド1回で起きること。公開後はこの流れは動かない</figcaption>
+</figure>
+
+<hr>
+
+<h3>まとめ — 覚えるべきこと</h3>
+
+<div class="scroll">
+<table>
+	<tr><th>概念</th><th>一言でいうと</th></tr>
+	<tr><td>サーバー / クライアント</td><td>頼む側と答える側。物理的に別の機械</td></tr>
+	<tr><td>API</td><td>他人のコンピュータの関数を呼ぶ窓口</td></tr>
+	<tr><td>HTTP</td><td>その頼み方の作法。ステータスコードで結果が分かる</td></tr>
+	<tr><td>JSON</td><td>運ぶための文字列形式。ここで型が消える</td></tr>
+	<tr><td>Promise</td><td>あとで値が入る箱。あなたの <code>RemoteData</code> と同じ発想</td></tr>
+	<tr><td><code>async</code> / <code>await</code></td><td>箱を開けるための構文</td></tr>
+	<tr><td><code>.server</code></td><td>「ブラウザに送らない」という宣言。秘密を置ける場所</td></tr>
+	<tr><td>prerender</td><td>ビルド時に全部作る。実行時にサーバーは動かない</td></tr>
+	<tr><td><code>load</code></td><td>返した値が <code>data</code> として画面に届く規約</td></tr>
+	<tr><td><code>entries</code></td><td>動的ルートで「どのページを作るか」を列挙する</td></tr>
+</table>
+</div>
+
+<div class="link">
+	<span class="label">あなたのカリキュラムとの接続</span>
+	<p><strong>Lv6（問46〜50）非同期と境界</strong> — 第5章がその内容そのものです。<code>Promise</code> / <code>async</code> / <code>await</code> / <code>fetch</code> / エラー処理。今回のコードは Lv6 の実物版です。</p>
+	<p><strong>Lv7（問51〜58）境界の型付けと検証</strong> — 第4章の「JSON で型が消える」がその動機です。<code>unknown</code> に絞る、ユーザー定義型ガードを書く、Result で fail-loud にする。<em>API から返ってきた JSON こそが「信用できない外部データ」の代表例</em>です。</p>
+	<p>つまり今回のプロジェクトは、あなたがこれから学ぶ内容の<strong>実地の題材</strong>になっています。Lv6・Lv7 を進めるとき、抽象的な toy 問題ではなく「あの profile-site のあの箇所」として思い出せるはずです。</p>
+</div>
+
+<div class="warn">
+	<span class="label">次にやること</span>
+	<p>この資料を読んだ上で、<code>src/routes/works/[id]/+page.server.ts</code>（既に書いたもの）をもう一度開いて、<strong>1行ずつ何をしているか声に出して説明</strong>してみてください。説明できない行があれば、その章に戻る。</p>
+	<p>それができたら、残り4つ（ホーム / works一覧 / blog一覧 / blog詳細）を<em>何も見ずに</em>書いてみてください。<strong>「再認 ≠ 再生」</strong>の原則どおり、読んで分かることと書けることは別物です。</p>
+</div>
+
+</div>
+</body>
+</html>
