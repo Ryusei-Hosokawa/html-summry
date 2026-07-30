@@ -44,6 +44,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none !important}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;
@@ -67,22 +68,61 @@ body{
   background:var(--bg-dark);
   border-bottom:1px solid var(--line);
 }
+.chrome__inner{max-width:var(--maxw);margin:0 auto;padding:0 16px}
 .chrome__brand{
   display:flex;align-items:center;gap:8px;
-  padding:9px 14px 7px;
+  padding:8px 0 7px;
   font-family:var(--mono);font-size:11px;letter-spacing:.08em;
   color:var(--fg-mute);
   border-bottom:1px solid var(--line-soft);
 }
-.chrome__dot{width:9px;height:9px;border-radius:50%;flex:none}
+.chrome__dot{width:9px;height:9px;border-radius:50%;flex:none;display:none}
 .chrome__dot--r{background:var(--red)}
 .chrome__dot--y{background:var(--yellow)}
 .chrome__dot--g{background:var(--green)}
-.chrome__path{margin-left:4px;color:var(--fg-mute)}
+.chrome__path{
+  margin-left:2px;color:var(--fg-mute);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
 .chrome__path b{color:var(--fg-dim);font-weight:500}
 
+/* hamburger */
+.burger{
+  display:flex;flex-direction:column;justify-content:center;gap:4px;
+  width:32px;height:32px;padding:8px;margin-left:-8px;flex:none;
+  background:transparent;border:0;cursor:pointer;border-radius:5px;
+}
+.burger:hover{background:var(--surface)}
+.burger span{
+  display:block;height:1.5px;width:100%;background:var(--fg-dim);
+  border-radius:2px;transition:transform .2s,opacity .2s;
+}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(5.5px) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+.burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-5.5px) rotate(-45deg)}
+
+/* drawer menu (narrow only) */
+.menu{
+  border-bottom:1px solid var(--line);
+  background:var(--bg-dark);padding:5px 0 9px;
+  animation:drop .2s ease;
+}
+.menu[hidden]{display:none}
+@keyframes drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.menu button{
+  display:flex;align-items:baseline;gap:11px;width:100%;text-align:left;
+  font-family:var(--mono);font-size:13.5px;
+  background:transparent;border:0;border-left:2px solid transparent;
+  color:var(--fg-mute);padding:12px 16px;cursor:pointer;transition:all .14s;
+}
+.menu button:hover{color:var(--fg-dim);background:var(--surface)}
+.menu button[aria-current="true"]{
+  color:var(--fg);border-left-color:var(--blue);background:var(--surface);
+}
+.menu__n{font-size:10.5px;color:var(--fg-mute);flex:none}
+
 .tabs{
-  display:flex;overflow-x:auto;scrollbar-width:none;
+  display:none;overflow-x:auto;scrollbar-width:none;
   -webkit-overflow-scrolling:touch;
 }
 .tabs::-webkit-scrollbar{display:none}
@@ -340,9 +380,14 @@ tbody tr:hover{background:var(--surface)}
 .fig{
   margin:22px 0;background:var(--bg-dark);
   border:1px solid var(--line-soft);border-radius:9px;
-  padding:14px 12px 10px;
+  padding:14px 10px 10px;
 }
 .fig svg{display:block;width:100%;height:auto}
+.fig__d{display:none}
+.fig__m{display:block}
+.fig__m .svg-lbl{font-size:12px}
+.fig__m .svg-sub{font-size:10px}
+.fig__m .svg-ttl{font-size:9.5px}
 .fig__cap{
   font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
   margin:10px 2px 0;line-height:1.6;
@@ -359,23 +404,52 @@ tbody tr:hover{background:var(--surface)}
 /* ============================================================
    Judge (decision tree)
    ============================================================ */
+.judge__step{
+  display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--yellow);margin:0 0 10px;
+}
+.judge__pips{display:flex;gap:4px}
+.judge__pip{width:16px;height:3px;border-radius:2px;background:var(--surface-3)}
+.judge__pip.on{background:var(--yellow)}
 .judge__q{
-  font-family:var(--sans);font-size:15px;font-weight:500;
-  margin:0 0 14px;color:var(--fg);line-height:1.6;
+  font-family:var(--sans);font-size:15.5px;font-weight:700;
+  margin:0 0 6px;color:var(--fg);line-height:1.6;
+}
+.judge__hint{
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
+  margin:0 0 12px;
 }
 .judge__opts{display:flex;flex-direction:column;gap:8px}
 .judge__opt{
+  display:flex;align-items:center;gap:12px;
   text-align:left;font-family:var(--sans);font-size:13.5px;
-  padding:12px 14px;border-radius:7px;
+  padding:13px 14px;border-radius:8px;
   background:var(--surface-2);color:var(--fg-dim);
   border:1px solid var(--line);cursor:pointer;transition:all .14s;
-  line-height:1.5;
+  line-height:1.5;width:100%;
 }
-.judge__opt:hover{border-color:var(--blue);color:var(--fg);background:var(--surface-3)}
-.judge__opt b{display:block;color:var(--fg);font-weight:700;font-size:14px;margin-bottom:2px}
+.judge__opt:hover,.judge__opt:focus-visible{
+  border-color:var(--blue);color:var(--fg);background:var(--surface-3);
+}
+.judge__opt:hover .judge__go,.judge__opt:focus-visible .judge__go{
+  color:var(--blue);transform:translateX(2px);
+}
+.judge__txt{flex:1;min-width:0}
+.judge__txt b{display:block;color:var(--fg);font-weight:700;font-size:14.5px;margin-bottom:2px}
+.judge__txt span{display:block;font-size:12.5px;color:var(--fg-mute)}
+.judge__go{
+  flex:none;font-family:var(--mono);font-size:15px;color:var(--fg-mute);
+  transition:all .14s;
+}
 .judge__crumbs{
   font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
-  margin:0 0 12px;min-height:16px;line-height:1.6;
+  margin:0 0 12px;line-height:1.7;
+}
+.judge__crumbs b{color:var(--cyan);font-weight:400}
+.judge__bar{
+  display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;
+  padding-top:14px;border-top:1px solid var(--line-soft);
 }
 .judge__res{border-radius:8px;padding:15px;border:1px solid var(--line)}
 .judge__res h4{
@@ -394,10 +468,14 @@ tbody tr:hover{background:var(--surface)}
 .btn-ghost{
   font-family:var(--mono);font-size:11.5px;
   background:transparent;border:1px solid var(--line);
-  color:var(--fg-mute);padding:7px 13px;border-radius:6px;cursor:pointer;
+  color:var(--fg-mute);padding:8px 14px;border-radius:6px;cursor:pointer;
   transition:all .14s;
 }
 .btn-ghost:hover{color:var(--fg);border-color:var(--fg-mute)}
+.btn-ghost--go{color:var(--blue);border-color:rgba(122,162,247,.5)}
+.btn-ghost--go:hover{color:var(--blue);border-color:var(--blue);background:rgba(122,162,247,.1)}
+.btn-ghost:disabled{opacity:.35;cursor:default}
+.btn-ghost:disabled:hover{color:var(--fg-mute);border-color:var(--line)}
 
 /* ============================================================
    Impact meter
@@ -515,7 +593,17 @@ tbody tr:hover{background:var(--surface)}
   body{font-size:15.5px}
   .grid2{grid-template-columns:1fr 1fr}
   .shell{padding:0 26px}
+  .chrome__inner{padding:0 26px}
+  .chrome__dot{display:block}
+  .chrome__brand{justify-content:center;padding:9px 0 7px}
+  .chrome__path{margin-left:4px;flex:none}
+  .burger{display:none}
+  .menu{display:none !important}
+  .tabs{display:flex;justify-content:center}
   .tab{padding:0 18px;font-size:12.5px}
+  .fig{padding:14px 14px 10px}
+  .fig__d{display:block}
+  .fig__m{display:none}
 }
 
 @media (min-width:1024px){
@@ -557,19 +645,32 @@ tbody tr:hover{background:var(--surface)}
 <body>
 
 <header class="chrome">
-  <div class="chrome__brand">
-    <span class="chrome__dot chrome__dot--r"></span>
-    <span class="chrome__dot chrome__dot--y"></span>
-    <span class="chrome__dot chrome__dot--g"></span>
-    <span class="chrome__path">docs/design/<b id="crumb">overview.md</b></span>
+  <div class="chrome__inner">
+    <div class="chrome__brand">
+      <button class="burger" id="burger" aria-expanded="false" aria-controls="menu" aria-label="セクションメニューを開く">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="chrome__dot chrome__dot--r"></span>
+      <span class="chrome__dot chrome__dot--y"></span>
+      <span class="chrome__dot chrome__dot--g"></span>
+      <span class="chrome__path">docs/design/<b id="crumb">overview.md</b></span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="セクション">
+      <button class="tab" role="tab" data-go="overview" aria-selected="true"><span class="tab__num">00</span>概要</button>
+      <button class="tab" role="tab" data-go="axis1" aria-selected="false"><span class="tab__num">01</span>構造</button>
+      <button class="tab" role="tab" data-go="axis2" aria-selected="false"><span class="tab__num">02</span>型安全度</button>
+      <button class="tab" role="tab" data-go="axis3" aria-selected="false"><span class="tab__num">03</span>文言</button>
+      <button class="tab" role="tab" data-go="dict" aria-selected="false"><span class="tab__num">04</span>辞書運用</button>
+      <button class="tab" role="tab" data-go="road" aria-selected="false"><span class="tab__num">05</span>導入順</button>
+    </nav>
   </div>
-  <nav class="tabs" role="tablist" aria-label="セクション">
-    <button class="tab" role="tab" data-go="overview" aria-selected="true"><span class="tab__num">00</span>概要</button>
-    <button class="tab" role="tab" data-go="axis1" aria-selected="false"><span class="tab__num">01</span>構造</button>
-    <button class="tab" role="tab" data-go="axis2" aria-selected="false"><span class="tab__num">02</span>型安全度</button>
-    <button class="tab" role="tab" data-go="axis3" aria-selected="false"><span class="tab__num">03</span>文言</button>
-    <button class="tab" role="tab" data-go="dict" aria-selected="false"><span class="tab__num">04</span>辞書運用</button>
-    <button class="tab" role="tab" data-go="road" aria-selected="false"><span class="tab__num">05</span>導入順</button>
+  <nav class="menu" id="menu" hidden aria-label="セクション（モバイル）">
+    <button data-go="overview" aria-current="true"><span class="menu__n">00</span>概要と前提</button>
+    <button data-go="axis1"><span class="menu__n">01</span>コンポーネント構造</button>
+    <button data-go="axis2"><span class="menu__n">02</span>スタイルの型安全度</button>
+    <button data-go="axis3"><span class="menu__n">03</span>文言・ラベル管理</button>
+    <button data-go="dict"><span class="menu__n">04</span>辞書の運用ルール</button>
+    <button data-go="road"><span class="menu__n">05</span>導入順序</button>
   </nav>
 </header>
 
@@ -642,7 +743,48 @@ tbody tr:hover{background:var(--surface)}
   </p>
 
   <div class="fig">
-    <svg viewBox="0 0 660 330" role="img" aria-label="4つの軸と担当ファイルの対応図">
+    <svg class="fig__m" viewBox="0 0 340 472" role="img" aria-label="4つの軸と担当ファイルの対応図">
+      <text x="8" y="14" class="svg-ttl">AXIS → OWNER FILE</text>
+
+      <g class="hit" data-go="axis2">
+        <rect x="8" y="26" width="324" height="78" rx="8" class="svg-box"/>
+        <text x="22" y="50" class="svg-lbl" fill="#e0af68" font-size="13">見た目</text>
+        <text x="318" y="50" class="svg-sub" text-anchor="end">変更: 低・一括</text>
+        <text x="22" y="70" class="svg-sub">色 / 余白 / 角丸 / タイポ</text>
+        <text x="22" y="92" class="svg-lbl" font-size="11" fill="#a9b1d6">└→ button-styles.ts</text>
+      </g>
+
+      <g class="hit" data-go="axis1">
+        <rect x="8" y="114" width="324" height="78" rx="8" class="svg-box"/>
+        <text x="22" y="138" class="svg-lbl" fill="#7dcfff" font-size="13">DOM構造</text>
+        <text x="318" y="138" class="svg-sub" text-anchor="end">変更: 極低</text>
+        <text x="22" y="158" class="svg-sub">要素 / ARIA / focus / 領域</text>
+        <text x="22" y="180" class="svg-lbl" font-size="11" fill="#a9b1d6">└→ Button.svelte</text>
+      </g>
+
+      <g class="hit" data-go="axis3">
+        <rect x="8" y="202" width="324" height="78" rx="8" class="svg-box"/>
+        <text x="22" y="226" class="svg-lbl" fill="#bb9af7" font-size="13">意味</text>
+        <text x="318" y="226" class="svg-sub" text-anchor="end">変更: 中</text>
+        <text x="22" y="246" class="svg-sub">操作 / ドメイン用語</text>
+        <text x="22" y="268" class="svg-lbl" font-size="11" fill="#a9b1d6">└→ actions.ts / terms.ts</text>
+      </g>
+
+      <rect x="8" y="290" width="324" height="78" rx="8" class="svg-box"/>
+      <text x="22" y="314" class="svg-lbl" fill="#f7768e" font-size="13">振る舞い</text>
+      <text x="318" y="314" class="svg-sub" text-anchor="end">変更: 高</text>
+      <text x="22" y="334" class="svg-sub">処理 / 状態遷移</text>
+      <text x="22" y="356" class="svg-lbl" font-size="11" fill="#a9b1d6">└→ domain/*.ts</text>
+
+      <path d="M170 368 V 392" class="svg-arrow" marker-end="url(#arM)"/>
+      <rect x="8" y="396" width="324" height="66" rx="8" class="svg-box svg-box--hot"/>
+      <text x="22" y="422" class="svg-lbl" fill="#9ece6a" font-size="13">画面コンポーネント</text>
+      <text x="22" y="444" class="svg-sub">4つの器から値を引くだけの薄い層</text>
+
+      <defs><marker id="arM" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+
+    <svg class="fig__d" viewBox="0 0 660 330" role="img" aria-label="4つの軸と担当ファイルの対応図">
       <text x="8" y="16" class="svg-ttl">AXIS → OWNER FILE</text>
 
       <g class="hit" data-go="axis2">
@@ -779,7 +921,44 @@ tbody tr:hover{background:var(--surface)}
   <p>ボタンには性質の違う軸が混ざっています。<strong>見た目(intent)</strong>と<strong>振る舞い(kind)</strong>を別々のDUにして、交差型で合成します。9パターンを手で書く必要はありません。</p>
 
   <div class="fig">
-    <svg viewBox="0 0 640 300" role="img" aria-label="Appearance と Behavior の交差型合成図">
+    <svg class="fig__m" viewBox="0 0 340 520" role="img" aria-label="Appearance と Behavior の交差型合成図">
+      <text x="8" y="14" class="svg-ttl">APPEARANCE × BEHAVIOR</text>
+
+      <rect x="8" y="26" width="324" height="132" rx="8" class="svg-box"/>
+      <text x="22" y="50" class="svg-lbl" fill="#e0af68" font-size="13">Appearance</text>
+      <text x="22" y="74" class="svg-sub">primary         disabled ✓</text>
+      <text x="22" y="92" class="svg-sub">neutral         disabled ✗</text>
+      <text x="22" y="110" class="svg-sub">subtle          disabled ✗</text>
+      <text x="22" y="128" class="svg-sub">destructive     disabled ✓</text>
+      <text x="22" y="148" class="svg-sub" fill="#565f89">→ 見た目と無効化の可否</text>
+
+      <text x="170" y="186" font-family="JetBrains Mono, monospace" font-size="22" fill="#bb9af7" text-anchor="middle">&amp;</text>
+
+      <rect x="8" y="198" width="324" height="114" rx="8" class="svg-box"/>
+      <text x="22" y="222" class="svg-lbl" fill="#7dcfff" font-size="13">Behavior</text>
+      <text x="22" y="246" class="svg-sub">button    onClick 必須</text>
+      <text x="22" y="264" class="svg-sub">submit    form が処理</text>
+      <text x="22" y="282" class="svg-sub">link      href / disabled ✗</text>
+      <text x="22" y="302" class="svg-sub" fill="#565f89">→ 生成される要素</text>
+
+      <path d="M170 312 V 336" class="svg-arrow" marker-end="url(#arM2)"/>
+
+      <rect x="8" y="340" width="324" height="112" rx="8" class="svg-box svg-box--hot"/>
+      <text x="22" y="364" class="svg-lbl" fill="#9ece6a" font-size="13">ButtonProps</text>
+      <text x="22" y="386" class="svg-sub">両方の制約を同時に満たす</text>
+      <text x="22" y="406" class="svg-sub" fill="#f7768e">boolean &amp; never = never</text>
+      <text x="22" y="424" class="svg-sub">↳ link は primary でも</text>
+      <text x="22" y="440" class="svg-sub">　 disabled にできない</text>
+
+      <path d="M170 452 V 476" class="svg-arrow" marker-end="url(#arM2)"/>
+
+      <rect x="8" y="480" width="324" height="34" rx="8" class="svg-box"/>
+      <text x="22" y="502" class="svg-sub" fill="#f7768e">呼び出し側で不正な組み合わせ = コンパイルエラー</text>
+
+      <defs><marker id="arM2" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+
+    <svg class="fig__d" viewBox="0 0 640 300" role="img" aria-label="Appearance と Behavior の交差型合成図">
       <text x="8" y="16" class="svg-ttl">APPEARANCE × BEHAVIOR = PROPS</text>
 
       <rect x="8" y="30" width="180" height="130" rx="8" class="svg-box"/>
@@ -1011,7 +1190,33 @@ tbody tr:hover{background:var(--surface)}
   <p>型注釈は<strong>「検査」と「上書き」の2つの仕事を同時に</strong>やっています。<code>satisfies</code> は検査だけを行い、上書きをしません。</p>
 
   <div class="fig">
-    <svg viewBox="0 0 640 230" role="img" aria-label="型注釈とsatisfiesとasの比較図">
+    <svg class="fig__m" viewBox="0 0 340 404" role="img" aria-label="型注釈とsatisfiesとasの比較図">
+      <text x="8" y="14" class="svg-ttl">CHECK / OVERWRITE</text>
+
+      <rect x="8" y="26" width="324" height="76" rx="8" class="svg-box"/>
+      <text x="22" y="50" class="svg-lbl" font-size="12.5">const x: T = 値</text>
+      <text x="22" y="72" class="svg-sub" fill="#9ece6a">検査する ✓</text>
+      <text x="22" y="90" class="svg-sub" fill="#f7768e">型を上書きする ✓　→ 具体性が消える</text>
+
+      <rect x="8" y="110" width="324" height="76" rx="8" class="svg-box"/>
+      <text x="22" y="134" class="svg-lbl" font-size="12.5">値 as T</text>
+      <text x="22" y="156" class="svg-sub" fill="#f7768e">検査しない ✗</text>
+      <text x="22" y="174" class="svg-sub" fill="#f7768e">型を上書きする ✓　→ 最も危険</text>
+
+      <rect x="8" y="194" width="324" height="76" rx="8" class="svg-box svg-box--hot"/>
+      <text x="22" y="218" class="svg-lbl" font-size="12.5" fill="#9ece6a">値 satisfies T</text>
+      <text x="22" y="240" class="svg-sub" fill="#9ece6a">検査する ✓</text>
+      <text x="22" y="258" class="svg-sub" fill="#9ece6a">上書きしない ✗　→ as の正反対</text>
+
+      <rect x="8" y="282" width="324" height="106" rx="8" class="svg-box"/>
+      <text x="22" y="304" class="svg-lbl" font-size="11">実例</text>
+      <text x="22" y="326" class="svg-sub" font-size="9">const a: Record&lt;K, string|number&gt; = { port: 3000 }</text>
+      <text x="22" y="342" class="svg-sub" font-size="9" fill="#f7768e">　→ a.port は string | number</text>
+      <text x="22" y="364" class="svg-sub" font-size="9">const b = { port: 3000 } satisfies Record&lt;...&gt;</text>
+      <text x="22" y="380" class="svg-sub" font-size="9" fill="#9ece6a">　→ b.port は number</text>
+    </svg>
+
+    <svg class="fig__d" viewBox="0 0 640 230" role="img" aria-label="型注釈とsatisfiesとasの比較図">
       <text x="8" y="16" class="svg-ttl">CHECK / OVERWRITE MATRIX</text>
 
       <rect x="8" y="30" width="196" height="86" rx="8" class="svg-box"/>
@@ -1102,7 +1307,42 @@ tbody tr:hover{background:var(--surface)}
   <p>呼び出し側は <code>action</code> だけを指定します。<strong>intentもlabelも指定できないので、規約が破れません</strong>。</p>
 
   <div class="fig">
-    <svg viewBox="0 0 640 250" role="img" aria-label="Actionカタログから見た目と文言が導出される図">
+    <svg class="fig__m" viewBox="0 0 340 466" role="img" aria-label="Actionカタログから見た目と文言が導出される図">
+      <text x="8" y="14" class="svg-ttl">SINGLE SOURCE OF TRUTH</text>
+
+      <rect x="8" y="26" width="324" height="104" rx="8" class="svg-box svg-box--hot"/>
+      <text x="22" y="50" class="svg-lbl" fill="#9ece6a" font-size="13">ACTIONS.applyJob</text>
+      <text x="22" y="74" class="svg-sub">label: '応募する'</text>
+      <text x="22" y="94" class="svg-sub">intent: 'primary'</text>
+      <text x="22" y="114" class="svg-sub">needsConfirm: true</text>
+
+      <path d="M170 130 V 152" class="svg-arrow" marker-end="url(#arM4)"/>
+
+      <rect x="8" y="156" width="324" height="52" rx="7" class="svg-box"/>
+      <text x="22" y="178" class="svg-lbl" font-size="11.5">label</text>
+      <text x="22" y="196" class="svg-sub">そのまま表示される</text>
+
+      <rect x="8" y="216" width="324" height="52" rx="7" class="svg-box"/>
+      <text x="22" y="238" class="svg-lbl" font-size="11.5">intent</text>
+      <text x="22" y="256" class="svg-sub">→ クラス表を引いて色が決まる</text>
+
+      <rect x="8" y="276" width="324" height="52" rx="7" class="svg-box"/>
+      <text x="22" y="298" class="svg-lbl" font-size="11.5">needsConfirm</text>
+      <text x="22" y="316" class="svg-sub">→ 確認ダイアログを挟む</text>
+
+      <path d="M170 328 V 350" class="svg-arrow" marker-end="url(#arM4)"/>
+
+      <rect x="8" y="354" width="324" height="72" rx="8" class="svg-box"/>
+      <text x="22" y="378" class="svg-lbl" font-size="12">&lt;Button</text>
+      <text x="22" y="398" class="svg-sub">  action="applyJob"</text>
+      <text x="22" y="418" class="svg-lbl" font-size="12">/&gt;</text>
+
+      <text x="8" y="452" class="svg-sub" fill="#565f89">// 用語も色の規約も、触るのは ACTIONS だけ</text>
+
+      <defs><marker id="arM4" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+
+    <svg class="fig__d" viewBox="0 0 640 250" role="img" aria-label="Actionカタログから見た目と文言が導出される図">
       <text x="8" y="16" class="svg-ttl">SINGLE SOURCE OF TRUTH</text>
 
       <rect x="8" y="34" width="176" height="96" rx="8" class="svg-box svg-box--hot"/>
@@ -1233,62 +1473,133 @@ tbody tr:hover{background:var(--surface)}
 
   <div class="lab">
     <p class="lab__t">Where does it go?</p>
-    <p class="lab__d">3問以内で分類先が決まります。</p>
+    <p class="lab__d">最大3問で分類先が決まります。選択肢をタップして進んでください。</p>
+
+    <div class="judge__step">
+      <span id="jStepTxt">Q1 / 最大3問</span>
+      <span class="judge__pips" id="jPips"></span>
+    </div>
     <p class="judge__crumbs" id="jCrumbs"></p>
+
     <div id="jBody">
       <p class="judge__q" id="jQ"></p>
+      <p class="judge__hint">↓ 当てはまるものをタップ</p>
       <div class="judge__opts" id="jOpts"></div>
     </div>
-    <div id="jRes" style="display:none"></div>
-    <div style="margin-top:14px"><button class="btn-ghost" id="jReset">最初から</button></div>
+    <div id="jRes" hidden></div>
+
+    <div class="judge__bar">
+      <button class="btn-ghost" id="jBack" disabled>← 1つ戻る</button>
+      <button class="btn-ghost" id="jReset">最初からやり直す</button>
+      <button class="btn-ghost btn-ghost--go" id="jAgain" hidden>別の文言で試す →</button>
+    </div>
   </div>
 
   <h2 class="h2"><span class="h2__n">04.2</span>置き場所の全体像</h2>
   <div class="fig">
-    <svg viewBox="0 0 640 330" role="img" aria-label="文言の分類と配置先のフロー図">
+    <svg class="fig__m" viewBox="0 0 340 560" role="img" aria-label="文言の分類と配置先のフロー図">
+      <text x="8" y="14" class="svg-ttl">TEXT ROUTING</text>
+
+      <rect x="8" y="24" width="190" height="34" rx="17" class="svg-box"/>
+      <text x="24" y="46" class="svg-lbl" font-size="12">文言が発生した</text>
+      <path d="M30 58 V 72" class="svg-arrow" marker-end="url(#arM5)"/>
+
+      <rect x="8" y="74" width="324" height="38" rx="7" class="svg-box"/>
+      <text x="24" y="98" class="svg-lbl" font-size="12">Q1. 操作(ボタン/メニュー)か?</text>
+      <path d="M240 112 V 128" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="250" y="126" class="svg-sub" fill="#9ece6a" font-size="9">yes</text>
+      <path d="M30 112 V 202" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="34" y="160" class="svg-sub" fill="#f7768e" font-size="9">no</text>
+
+      <rect x="48" y="134" width="284" height="64" rx="7" class="svg-box"/>
+      <text x="62" y="158" class="svg-lbl" font-size="11.5" fill="#7aa2f7">domain/actions/*.ts</text>
+      <text x="62" y="176" class="svg-sub">label + intent + needsConfirm</text>
+      <text x="62" y="192" class="svg-sub" fill="#565f89">不可分なので操作単位で持つ</text>
+
+      <rect x="8" y="206" width="324" height="38" rx="7" class="svg-box"/>
+      <text x="24" y="230" class="svg-lbl" font-size="12">Q2. ドメイン用語か?</text>
+      <path d="M240 244 V 260" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="250" y="258" class="svg-sub" fill="#9ece6a" font-size="9">yes</text>
+      <path d="M30 244 V 334" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="34" y="292" class="svg-sub" fill="#f7768e" font-size="9">no</text>
+
+      <rect x="48" y="266" width="284" height="64" rx="7" class="svg-box"/>
+      <text x="62" y="290" class="svg-lbl" font-size="11.5" fill="#bb9af7">messages/terms.ts</text>
+      <text x="62" y="308" class="svg-sub">求人 / 応募 / 選考 / 職種</text>
+      <text x="62" y="324" class="svg-sub" fill="#565f89">二面性に注意</text>
+
+      <rect x="8" y="338" width="324" height="38" rx="7" class="svg-box"/>
+      <text x="24" y="362" class="svg-lbl" font-size="12">Q3. ロジック由来か?</text>
+      <path d="M240 376 V 392" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="250" y="390" class="svg-sub" fill="#9ece6a" font-size="9">yes</text>
+      <path d="M30 376 V 466" class="svg-arrow" marker-end="url(#arM5)"/>
+      <text x="34" y="424" class="svg-sub" fill="#f7768e" font-size="9">no</text>
+
+      <rect x="48" y="398" width="284" height="64" rx="7" class="svg-box"/>
+      <text x="62" y="422" class="svg-lbl" font-size="11.5" fill="#ff9e64">domain DU + messages/</text>
+      <text x="62" y="440" class="svg-sub">エラー / 状態表示 / 検証</text>
+      <text x="62" y="456" class="svg-sub" fill="#565f89">resolve関数で1回だけ変換</text>
+
+      <rect x="8" y="470" width="324" height="56" rx="7" class="svg-box"/>
+      <text x="24" y="494" class="svg-lbl" font-size="11.5" fill="#a9b1d6">直書きでよい</text>
+      <text x="24" y="514" class="svg-sub" fill="#565f89">3箇所目に出たら再検討する</text>
+
+      <text x="8" y="548" class="svg-sub" fill="#565f89">// 予測で辞書に入れない</text>
+
+      <defs><marker id="arM5" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+
+    <svg class="fig__d" viewBox="0 0 660 400" role="img" aria-label="文言の分類と配置先のフロー図">
       <text x="8" y="16" class="svg-ttl">TEXT ROUTING</text>
 
-      <rect x="230" y="28" width="180" height="38" rx="19" class="svg-box"/>
-      <text x="320" y="52" class="svg-lbl" text-anchor="middle">文言が発生</text>
+      <rect x="250" y="30" width="160" height="34" rx="17" class="svg-box"/>
+      <text x="330" y="52" class="svg-lbl" text-anchor="middle" font-size="10">文言が発生した</text>
+      <path d="M330 64 V 82" class="svg-arrow" marker-end="url(#ar4)"/>
 
-      <path d="M320 66 V 92" class="svg-arrow" marker-end="url(#ar4)"/>
-      <rect x="230" y="94" width="180" height="34" rx="6" class="svg-box"/>
-      <text x="320" y="115" class="svg-sub" text-anchor="middle">操作(ボタン/メニュー)か?</text>
+      <rect x="250" y="86" width="160" height="40" rx="6" class="svg-box"/>
+      <text x="330" y="111" class="svg-sub" text-anchor="middle">操作(ボタン/メニュー)か?</text>
+      <path d="M410 106 H 454" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="418" y="100" class="svg-sub" fill="#9ece6a">yes</text>
 
-      <path d="M230 111 H 150 V 168" class="svg-arrow" marker-end="url(#ar4)"/>
-      <text x="176" y="105" class="svg-sub" fill="#9ece6a">yes</text>
-      <rect x="60" y="170" width="180" height="56" rx="7" class="svg-box"/>
-      <text x="74" y="192" class="svg-lbl" font-size="10" fill="#7aa2f7">domain/actions/*.ts</text>
-      <text x="74" y="210" class="svg-sub">label + intent + needsConfirm</text>
-      <text x="74" y="222" class="svg-sub" fill="#565f89">不可分なので操作単位で持つ</text>
+      <rect x="458" y="76" width="194" height="62" rx="7" class="svg-box"/>
+      <text x="472" y="98" class="svg-lbl" font-size="10" fill="#7aa2f7">domain/actions/*.ts</text>
+      <text x="472" y="116" class="svg-sub">label + intent + needsConfirm</text>
+      <text x="472" y="130" class="svg-sub" fill="#565f89">不可分なので操作単位で持つ</text>
 
-      <path d="M320 128 V 148" class="svg-arrow" marker-end="url(#ar4)"/>
-      <rect x="230" y="150" width="180" height="34" rx="6" class="svg-box"/>
-      <text x="320" y="171" class="svg-sub" text-anchor="middle">ドメイン用語か?</text>
+      <path d="M330 126 V 146" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="336" y="141" class="svg-sub" fill="#f7768e">no</text>
 
-      <path d="M410 167 H 486 V 200" class="svg-arrow" marker-end="url(#ar4)"/>
-      <text x="436" y="161" class="svg-sub" fill="#9ece6a">yes</text>
-      <rect x="400" y="202" width="180" height="56" rx="7" class="svg-box"/>
-      <text x="414" y="224" class="svg-lbl" font-size="10" fill="#bb9af7">messages/terms.ts</text>
-      <text x="414" y="242" class="svg-sub">求人 / 応募 / 選考 / 職種</text>
-      <text x="414" y="254" class="svg-sub" fill="#565f89">二面性に注意</text>
+      <rect x="250" y="150" width="160" height="40" rx="6" class="svg-box"/>
+      <text x="330" y="175" class="svg-sub" text-anchor="middle">ドメイン用語か?</text>
+      <path d="M250 170 H 206" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="222" y="164" class="svg-sub" fill="#9ece6a">yes</text>
 
-      <path d="M320 184 V 204" class="svg-arrow" marker-end="url(#ar4)"/>
-      <rect x="230" y="206" width="180" height="34" rx="6" class="svg-box"/>
-      <text x="320" y="227" class="svg-sub" text-anchor="middle">ロジック由来か?</text>
+      <rect x="8" y="140" width="194" height="62" rx="7" class="svg-box"/>
+      <text x="22" y="162" class="svg-lbl" font-size="10" fill="#bb9af7">messages/terms.ts</text>
+      <text x="22" y="180" class="svg-sub">求人 / 応募 / 選考 / 職種</text>
+      <text x="22" y="194" class="svg-sub" fill="#565f89">二面性に注意</text>
 
-      <path d="M230 223 H 150 V 264" class="svg-arrow" marker-end="url(#ar4)"/>
-      <text x="176" y="217" class="svg-sub" fill="#9ece6a">yes</text>
-      <rect x="60" y="266" width="180" height="56" rx="7" class="svg-box"/>
-      <text x="74" y="288" class="svg-lbl" font-size="10" fill="#ff9e64">domain DU + messages/</text>
-      <text x="74" y="306" class="svg-sub">エラー / 状態表示</text>
-      <text x="74" y="318" class="svg-sub" fill="#565f89">resolve関数で変換</text>
+      <path d="M330 190 V 210" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="336" y="205" class="svg-sub" fill="#f7768e">no</text>
 
-      <path d="M320 240 V 268" class="svg-arrow" marker-end="url(#ar4)"/>
-      <text x="330" y="258" class="svg-sub" fill="#f7768e">no</text>
-      <rect x="248" y="270" width="144" height="50" rx="7" class="svg-box"/>
-      <text x="262" y="292" class="svg-lbl" font-size="10" fill="#a9b1d6">直書き</text>
-      <text x="262" y="310" class="svg-sub">3箇所目で再検討</text>
+      <rect x="250" y="214" width="160" height="40" rx="6" class="svg-box"/>
+      <text x="330" y="239" class="svg-sub" text-anchor="middle">ロジック由来か?</text>
+      <path d="M410 234 H 454" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="418" y="228" class="svg-sub" fill="#9ece6a">yes</text>
+
+      <rect x="458" y="204" width="194" height="62" rx="7" class="svg-box"/>
+      <text x="472" y="226" class="svg-lbl" font-size="10" fill="#ff9e64">domain DU + messages/</text>
+      <text x="472" y="244" class="svg-sub">エラー / 状態表示 / 検証</text>
+      <text x="472" y="258" class="svg-sub" fill="#565f89">resolve関数で1回だけ変換</text>
+
+      <path d="M330 254 V 278" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="336" y="271" class="svg-sub" fill="#f7768e">no</text>
+
+      <rect x="235" y="282" width="190" height="58" rx="7" class="svg-box"/>
+      <text x="249" y="304" class="svg-lbl" font-size="10" fill="#a9b1d6">直書きでよい</text>
+      <text x="249" y="324" class="svg-sub" fill="#565f89">3箇所目に出たら再検討する</text>
+
+      <text x="8" y="376" class="svg-sub" fill="#565f89">// 予測で辞書に入れない。3箇所目に出たときが構造的な重複のサイン</text>
 
       <defs><marker id="ar4" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
     </svg>
@@ -1487,6 +1798,8 @@ function go(id, push){
   $$('.view').forEach(v => v.classList.toggle('is-active', v.id === 'v-' + page.id));
   $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.go === page.id)));
   $$('#sideNav button').forEach(b => b.setAttribute('aria-current', String(b.dataset.go === page.id)));
+  $$('#menu button').forEach(b => b.setAttribute('aria-current', String(b.dataset.go === page.id)));
+  setMenu(false);
 
   $('#crumb').textContent  = page.file;
   $('#stFile').textContent = 'docs/design/' + page.file;
@@ -1498,6 +1811,27 @@ function go(id, push){
   }
   window.scrollTo(0, 0);
 }
+
+/* hamburger (narrow screens) */
+const burger = document.getElementById('burger');
+const menuEl = document.getElementById('menu');
+
+function setMenu(open){
+  if (!menuEl || !burger) return;
+  menuEl.hidden = !open;
+  burger.setAttribute('aria-expanded', String(open));
+  burger.setAttribute('aria-label', open ? 'セクションメニューを閉じる' : 'セクションメニューを開く');
+}
+burger.addEventListener('click', e => {
+  e.stopPropagation();
+  setMenu(menuEl.hidden);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !menuEl.hidden) { setMenu(false); burger.focus(); }
+});
+document.addEventListener('click', e => {
+  if (!menuEl.hidden && !menuEl.contains(e.target) && !burger.contains(e.target)) setMenu(false);
+});
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-go]');
@@ -1888,28 +2222,41 @@ const TREE = {
 };
 
 (function initJudge(){
+  const MAXQ = 3;
+  let stack = ['start'];
   let crumbs = [];
 
-  function step(id){
-    const node = TREE[id];
+  const cur = () => TREE[stack[stack.length - 1]];
+
+  function render(){
+    const node = cur();
+    const answered = stack.filter(id => TREE[id] && TREE[id].opts).length;
+
+    let pips = '';
+    for (let i = 0; i < MAXQ; i++) pips += '<span class="judge__pip' + (i < answered ? ' on' : '') + '"></span>';
+    $('#jPips').innerHTML = pips;
+    $('#jStepTxt').textContent = node.opts ? ('Q' + answered + ' / 最大' + MAXQ + '問') : '判定完了';
+
+    $('#jCrumbs').innerHTML = crumbs.length
+      ? crumbs.map(c => '<b>' + c + '</b>').join('　›　')
+      : '選んだ内容がここに残ります';
+    $('#jBack').disabled = stack.length <= 1;
+
     if (node.opts) {
-      $('#jBody').style.display = '';
-      $('#jRes').style.display = 'none';
+      $('#jBody').hidden = false;
+      $('#jRes').hidden  = true;
+      $('#jAgain').hidden = true;
       $('#jQ').textContent = node.q;
       $('#jOpts').innerHTML = node.opts.map((o, i) =>
-        '<button class="judge__opt" data-i="' + i + '"><b>' + o.b + '</b>' + o.d + '</button>').join('');
-      $('#jOpts').onclick = e => {
-        const b = e.target.closest('button');
-        if (!b) return;
-        const o = node.opts[+b.dataset.i];
-        crumbs.push(o.b);
-        $('#jCrumbs').textContent = crumbs.join('  ›  ');
-        step(o.next);
-      };
+        '<button class="judge__opt" data-i="' + i + '">' +
+          '<span class="judge__txt"><b>' + o.b + '</b><span>' + o.d + '</span></span>' +
+          '<span class="judge__go">›</span>' +
+        '</button>').join('');
     } else {
-      $('#jBody').style.display = 'none';
+      $('#jBody').hidden = true;
+      $('#jAgain').hidden = false;
       const r = $('#jRes');
-      r.style.display = '';
+      r.hidden = false;
       r.className = 'judge__res ' + node.cls;
       r.innerHTML =
         '<h4>→ ' + node.t + '</h4>' +
@@ -1918,8 +2265,23 @@ const TREE = {
         '<p class="muted" style="margin:0">' + node.tip + '</p>';
     }
   }
-  $('#jReset').addEventListener('click', () => { crumbs = []; $('#jCrumbs').textContent = ''; step('start'); });
-  step('start');
+
+  $('#jOpts').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const o = cur().opts[+b.dataset.i];
+    crumbs.push(o.b);
+    stack.push(o.next);
+    render();
+  });
+  $('#jBack').addEventListener('click', () => {
+    if (stack.length <= 1) return;
+    stack.pop(); crumbs.pop(); render();
+  });
+  const reset = () => { stack = ['start']; crumbs = []; render(); };
+  $('#jReset').addEventListener('click', reset);
+  $('#jAgain').addEventListener('click', reset);
+  render();
 })();
 
 /* ============================================================
