@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>設計方針まとめ — 求人マッチングサイト フロントエンド</title>
+<meta name="description" content="コンポーネント構造・型安全度・文言管理の3軸について、採用する方針とその理由をまとめた設計資料。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Tokyo Night — tokens
+   ============================================================ */
+:root{
+  --bg:#1a1b26;
+  --bg-dark:#16161e;
+  --surface:#1f2335;
+  --surface-2:#24283b;
+  --surface-3:#292e42;
+  --line:#3b4261;
+  --line-soft:#2a2f43;
+
+  --fg:#c0caf5;
+  --fg-dim:#a9b1d6;
+  --fg-mute:#565f89;
+
+  --blue:#7aa2f7;
+  --cyan:#7dcfff;
+  --teal:#2ac3de;
+  --green:#9ece6a;
+  --purple:#bb9af7;
+  --orange:#ff9e64;
+  --red:#f7768e;
+  --yellow:#e0af68;
+
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'Zen Kaku Gothic New','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;
+
+  --tab-h:44px;
+  --status-h:30px;
+  --maxw:940px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.85;
+  letter-spacing:.01em;
+  padding-bottom:calc(var(--status-h) + env(safe-area-inset-bottom));
+  overflow-wrap:anywhere;
+}
+::selection{background:rgba(122,162,247,.3)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:2px}
+
+/* ============================================================
+   Editor chrome — tab bar
+   ============================================================ */
+.chrome{
+  position:sticky;top:0;z-index:50;
+  background:var(--bg-dark);
+  border-bottom:1px solid var(--line);
+}
+.chrome__brand{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 14px 7px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+  color:var(--fg-mute);
+  border-bottom:1px solid var(--line-soft);
+}
+.chrome__dot{width:9px;height:9px;border-radius:50%;flex:none}
+.chrome__dot--r{background:var(--red)}
+.chrome__dot--y{background:var(--yellow)}
+.chrome__dot--g{background:var(--green)}
+.chrome__path{margin-left:4px;color:var(--fg-mute)}
+.chrome__path b{color:var(--fg-dim);font-weight:500}
+
+.tabs{
+  display:flex;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:none;
+  display:flex;align-items:center;gap:7px;
+  height:var(--tab-h);padding:0 14px;
+  background:transparent;border:0;border-right:1px solid var(--line-soft);
+  border-bottom:2px solid transparent;
+  color:var(--fg-mute);
+  font-family:var(--mono);font-size:12px;
+  cursor:pointer;white-space:nowrap;
+  transition:color .15s,background .15s,border-color .15s;
+}
+.tab:hover{color:var(--fg-dim);background:var(--surface)}
+.tab[aria-selected="true"]{
+  color:var(--fg);background:var(--bg);
+  border-bottom-color:var(--blue);
+}
+.tab__num{color:var(--fg-mute);font-size:10px}
+.tab[aria-selected="true"] .tab__num{color:var(--blue)}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.shell{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+.side{display:none}
+
+.view{display:none;padding:26px 0 60px;animation:fade .28s ease}
+.view.is-active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   Typography
+   ============================================================ */
+.eyebrow{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  color:var(--purple);margin:0 0 8px;text-transform:uppercase;
+}
+.h1{
+  font-family:var(--mono);font-weight:700;
+  font-size:clamp(23px,6.4vw,36px);line-height:1.25;
+  margin:0 0 12px;letter-spacing:-.01em;color:var(--fg);
+}
+.h1 em{font-style:normal;color:var(--blue)}
+.lede{color:var(--fg-dim);font-size:15px;margin:0 0 26px;max-width:62ch}
+
+.h2{
+  display:flex;align-items:baseline;gap:10px;
+  font-family:var(--mono);font-weight:700;
+  font-size:clamp(17px,4.6vw,22px);line-height:1.4;
+  margin:44px 0 14px;padding-top:20px;
+  border-top:1px solid var(--line-soft);
+  color:var(--fg);
+}
+.h2__n{
+  font-size:11px;color:var(--fg-mute);flex:none;
+  padding-top:2px;
+}
+.h3{
+  font-family:var(--mono);font-weight:700;font-size:14px;
+  margin:30px 0 10px;color:var(--cyan);letter-spacing:.02em;
+}
+p{margin:0 0 15px}
+.muted{color:var(--fg-mute);font-size:13px}
+strong{color:var(--fg);font-weight:700}
+code{
+  font-family:var(--mono);font-size:.86em;
+  background:var(--surface-2);color:var(--cyan);
+  padding:.12em .42em;border-radius:3px;
+  border:1px solid var(--line-soft);
+}
+a{color:var(--blue)}
+
+/* ============================================================
+   Callouts
+   ============================================================ */
+.note{
+  border-left:3px solid var(--blue);
+  background:var(--surface);
+  padding:14px 16px;margin:20px 0;border-radius:0 6px 6px 0;
+}
+.note--warn{border-left-color:var(--orange)}
+.note--bad{border-left-color:var(--red)}
+.note--ok{border-left-color:var(--green)}
+.note__t{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  color:var(--blue);margin:0 0 6px;text-transform:uppercase;
+}
+.note--warn .note__t{color:var(--orange)}
+.note--bad .note__t{color:var(--red)}
+.note--ok .note__t{color:var(--green)}
+.note p:last-child{margin-bottom:0}
+
+.verdict{
+  display:flex;flex-direction:column;gap:4px;
+  background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  border:1px solid var(--line);border-radius:8px;
+  padding:16px;margin:0 0 26px;
+}
+.verdict__k{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--fg-mute)}
+.verdict__v{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green);line-height:1.55}
+
+/* ============================================================
+   Code blocks
+   ============================================================ */
+.code{
+  position:relative;
+  background:var(--bg-dark);
+  border:1px solid var(--line-soft);border-radius:7px;
+  margin:16px 0;overflow:hidden;
+}
+.code__bar{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 12px;border-bottom:1px solid var(--line-soft);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--fg-mute);background:var(--surface);
+}
+.code__bar b{color:var(--fg-dim);font-weight:500}
+.code pre{
+  margin:0;padding:13px 14px;overflow-x:auto;
+  font-family:var(--mono);font-size:12px;line-height:1.75;
+  color:var(--fg-dim);
+}
+.code pre::-webkit-scrollbar{height:7px}
+.code pre::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.k{color:var(--purple)}    /* keyword */
+.t{color:var(--cyan)}      /* type */
+.s{color:var(--green)}     /* string */
+.c{color:var(--fg-mute);font-style:italic} /* comment */
+.f{color:var(--blue)}      /* function/prop */
+.n{color:var(--orange)}    /* number/const */
+.e{color:var(--red)}       /* error mark */
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.tw{overflow-x:auto;margin:18px 0;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:480px;font-size:13px}
+th,td{
+  text-align:left;padding:9px 11px;
+  border-bottom:1px solid var(--line-soft);vertical-align:top;
+}
+th{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--fg-mute);text-transform:uppercase;font-weight:500;
+  border-bottom:1px solid var(--line);
+}
+tbody tr:hover{background:var(--surface)}
+.row-pick{background:rgba(158,206,106,.08)}
+.row-pick td{border-bottom-color:rgba(158,206,106,.2)}
+.pick-tag{
+  font-family:var(--mono);font-size:10px;color:var(--green);
+  border:1px solid var(--green);border-radius:3px;padding:1px 5px;
+  white-space:nowrap;
+}
+
+/* ============================================================
+   Generic interactive card
+   ============================================================ */
+.lab{
+  background:var(--surface);
+  border:1px solid var(--line);border-radius:10px;
+  padding:16px;margin:22px 0;
+}
+.lab__t{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  color:var(--yellow);margin:0 0 4px;text-transform:uppercase;
+}
+.lab__t::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--yellow);flex:none}
+.lab__d{color:var(--fg-mute);font-size:12.5px;margin:0 0 14px}
+
+.ctl{margin:0 0 14px}
+.ctl__l{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--fg-mute);display:block;margin:0 0 7px;text-transform:uppercase;
+}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{
+  font-family:var(--mono);font-size:12px;
+  padding:7px 11px;border-radius:6px;
+  background:var(--surface-2);color:var(--fg-dim);
+  border:1px solid var(--line);cursor:pointer;
+  transition:all .14s;
+}
+.seg button:hover{border-color:var(--fg-mute);color:var(--fg)}
+.seg button[aria-pressed="true"]{
+  background:rgba(122,162,247,.15);border-color:var(--blue);color:var(--blue);
+}
+.switch{
+  display:inline-flex;align-items:center;gap:9px;cursor:pointer;
+  font-family:var(--mono);font-size:12px;color:var(--fg-dim);
+}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch__box{
+  width:38px;height:21px;border-radius:11px;flex:none;
+  background:var(--surface-3);border:1px solid var(--line);
+  position:relative;transition:all .18s;
+}
+.switch__box::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:15px;height:15px;border-radius:50%;
+  background:var(--fg-mute);transition:all .18s;
+}
+.switch input:checked + .switch__box{background:rgba(122,162,247,.25);border-color:var(--blue)}
+.switch input:checked + .switch__box::after{transform:translateX(17px);background:var(--blue)}
+.switch input:disabled + .switch__box{opacity:.35;cursor:not-allowed}
+.switch input:focus-visible + .switch__box{outline:2px solid var(--cyan);outline-offset:2px}
+
+.out{
+  background:var(--bg-dark);border:1px solid var(--line-soft);
+  border-radius:7px;padding:14px;margin-top:14px;
+}
+.out__l{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  color:var(--fg-mute);margin:0 0 10px;text-transform:uppercase;
+}
+.stage{
+  display:flex;align-items:center;justify-content:center;
+  min-height:78px;padding:14px;
+  background:repeating-linear-gradient(45deg,var(--surface) 0 8px,transparent 8px 16px);
+  border-radius:6px;border:1px dashed var(--line);
+}
+.verdictline{
+  display:flex;align-items:flex-start;gap:9px;margin-top:12px;
+  font-family:var(--mono);font-size:12px;line-height:1.65;
+}
+.verdictline--ok{color:var(--green)}
+.verdictline--ng{color:var(--red)}
+.verdictline i{font-style:normal;flex:none}
+
+/* preview buttons (demo only) */
+.pv{
+  font-family:var(--sans);font-weight:500;font-size:14px;
+  display:inline-flex;align-items:center;justify-content:center;
+  height:44px;padding:0 22px;border-radius:8px;
+  border:1px solid transparent;cursor:pointer;
+  transition:all .15s;text-decoration:none;
+}
+.pv--primary{background:var(--blue);color:#101322;border-color:var(--blue)}
+.pv--primary:hover{background:#8fb2f8}
+.pv--neutral{background:transparent;color:var(--fg);border-color:var(--line)}
+.pv--neutral:hover{background:var(--surface-2)}
+.pv--subtle{background:transparent;color:var(--fg-dim);border-color:transparent;text-decoration:underline;text-underline-offset:4px}
+.pv--subtle:hover{color:var(--fg)}
+.pv--destructive{background:var(--red);color:#1a1016;border-color:var(--red)}
+.pv--destructive:hover{background:#f98ea1}
+.pv.is-off{opacity:.4;cursor:not-allowed;pointer-events:none}
+.pv--sm{height:34px;padding:0 14px;font-size:12.5px}
+
+/* ============================================================
+   SVG figures
+   ============================================================ */
+.fig{
+  margin:22px 0;background:var(--bg-dark);
+  border:1px solid var(--line-soft);border-radius:9px;
+  padding:14px 12px 10px;
+}
+.fig svg{display:block;width:100%;height:auto}
+.fig__cap{
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
+  margin:10px 2px 0;line-height:1.6;
+}
+.svg-box{fill:var(--surface-2);stroke:var(--line);stroke-width:1}
+.svg-box--hot{fill:rgba(158,206,106,.16);stroke:var(--green)}
+.svg-lbl{font-family:var(--mono);font-size:11px;fill:var(--fg-dim)}
+.svg-sub{font-family:var(--mono);font-size:8.5px;fill:var(--fg-mute)}
+.svg-ttl{font-family:var(--mono);font-size:9px;fill:var(--fg-mute);letter-spacing:.1em}
+.svg-arrow{stroke:var(--fg-mute);stroke-width:1.2;fill:none}
+.hit{cursor:pointer}
+.hit:hover .svg-box{stroke:var(--cyan)}
+
+/* ============================================================
+   Judge (decision tree)
+   ============================================================ */
+.judge__q{
+  font-family:var(--sans);font-size:15px;font-weight:500;
+  margin:0 0 14px;color:var(--fg);line-height:1.6;
+}
+.judge__opts{display:flex;flex-direction:column;gap:8px}
+.judge__opt{
+  text-align:left;font-family:var(--sans);font-size:13.5px;
+  padding:12px 14px;border-radius:7px;
+  background:var(--surface-2);color:var(--fg-dim);
+  border:1px solid var(--line);cursor:pointer;transition:all .14s;
+  line-height:1.5;
+}
+.judge__opt:hover{border-color:var(--blue);color:var(--fg);background:var(--surface-3)}
+.judge__opt b{display:block;color:var(--fg);font-weight:700;font-size:14px;margin-bottom:2px}
+.judge__crumbs{
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
+  margin:0 0 12px;min-height:16px;line-height:1.6;
+}
+.judge__res{border-radius:8px;padding:15px;border:1px solid var(--line)}
+.judge__res h4{
+  font-family:var(--mono);font-size:15px;margin:0 0 4px;
+}
+.judge__res .why{font-size:13px;color:var(--fg-dim);margin:0 0 12px}
+.res--actions{background:rgba(122,162,247,.1);border-color:var(--blue)}
+.res--actions h4{color:var(--blue)}
+.res--terms{background:rgba(187,154,247,.1);border-color:var(--purple)}
+.res--terms h4{color:var(--purple)}
+.res--messages{background:rgba(255,158,100,.1);border-color:var(--orange)}
+.res--messages h4{color:var(--orange)}
+.res--inline{background:rgba(86,95,137,.14);border-color:var(--fg-mute)}
+.res--inline h4{color:var(--fg-dim)}
+
+.btn-ghost{
+  font-family:var(--mono);font-size:11.5px;
+  background:transparent;border:1px solid var(--line);
+  color:var(--fg-mute);padding:7px 13px;border-radius:6px;cursor:pointer;
+  transition:all .14s;
+}
+.btn-ghost:hover{color:var(--fg);border-color:var(--fg-mute)}
+
+/* ============================================================
+   Impact meter
+   ============================================================ */
+.meter{margin-top:6px}
+.meter__row{margin-bottom:13px}
+.meter__top{
+  display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  font-family:var(--mono);font-size:11px;margin-bottom:5px;
+}
+.meter__name{color:var(--fg-mute)}
+.meter__val{font-weight:700}
+.meter__track{height:9px;background:var(--surface-3);border-radius:5px;overflow:hidden}
+.meter__fill{height:100%;border-radius:5px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.meter__fill--bad{background:linear-gradient(90deg,var(--red),var(--orange))}
+.meter__fill--good{background:linear-gradient(90deg,var(--green),var(--teal))}
+.filelist{
+  font-family:var(--mono);font-size:11.5px;color:var(--green);
+  margin-top:11px;line-height:1.8;
+}
+.filelist span{display:block}
+
+/* ============================================================
+   Checklist
+   ============================================================ */
+.steps{list-style:none;padding:0;margin:18px 0;counter-reset:s}
+.steps li{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:13px 14px;margin-bottom:9px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:8px;cursor:pointer;transition:all .16s;
+}
+.steps li:hover{border-color:var(--fg-mute)}
+.steps li.done{background:rgba(158,206,106,.08);border-color:rgba(158,206,106,.4)}
+.steps__box{
+  width:19px;height:19px;flex:none;margin-top:3px;
+  border:1.5px solid var(--line);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:transparent;transition:all .16s;
+}
+.steps li.done .steps__box{background:var(--green);border-color:var(--green);color:#16161e}
+.steps__b{display:block;font-family:var(--mono);font-size:13.5px;color:var(--fg);margin-bottom:3px}
+.steps li.done .steps__b{text-decoration:line-through;text-decoration-color:var(--fg-mute)}
+.steps__d{display:block;font-size:12.5px;color:var(--fg-mute);line-height:1.6}
+.steps__when{
+  display:inline-block;margin-top:5px;font-family:var(--mono);font-size:10px;
+  color:var(--yellow);border:1px solid rgba(224,175,104,.4);
+  border-radius:3px;padding:1px 6px;
+}
+.progress{
+  font-family:var(--mono);font-size:11px;color:var(--fg-mute);
+  display:flex;align-items:center;gap:10px;margin-bottom:4px;
+}
+.progress__track{flex:1;height:5px;background:var(--surface-3);border-radius:3px;overflow:hidden}
+.progress__fill{height:100%;background:var(--green);width:0;transition:width .35s}
+
+/* ============================================================
+   Misc
+   ============================================================ */
+.grid2{display:grid;gap:12px;margin:18px 0}
+.card{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:9px;padding:15px;
+}
+.card h4{
+  font-family:var(--mono);font-size:12.5px;margin:0 0 7px;color:var(--cyan);
+}
+.card--no h4{color:var(--red)}
+.card--yes h4{color:var(--green)}
+.card p{margin:0;font-size:13px;color:var(--fg-dim)}
+.card ul{margin:8px 0 0;padding-left:19px;font-size:12.5px;color:var(--fg-dim)}
+.card li{margin-bottom:5px}
+
+.taglist{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.tagx{
+  font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:5px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--fg-mute);
+}
+
+.status{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  height:calc(var(--status-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:var(--surface-2);border-top:1px solid var(--line);
+  display:flex;align-items:center;
+  font-family:var(--mono);font-size:10.5px;color:var(--fg-mute);
+  overflow:hidden;
+}
+.status__mode{
+  background:var(--blue);color:#101322;font-weight:700;
+  padding:0 10px;height:100%;display:flex;align-items:center;
+  letter-spacing:.1em;flex:none;
+}
+.status__file{padding:0 10px;color:var(--fg-dim);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status__pos{padding:0 12px;flex:none;border-left:1px solid var(--line)}
+
+.pager{
+  display:flex;gap:10px;margin-top:46px;padding-top:20px;
+  border-top:1px solid var(--line-soft);
+}
+.pager button{
+  flex:1;text-align:left;font-family:var(--mono);font-size:12px;
+  background:var(--surface);border:1px solid var(--line);color:var(--fg-dim);
+  padding:12px 14px;border-radius:8px;cursor:pointer;transition:all .15s;
+}
+.pager button:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
+.pager button:disabled{opacity:.3;cursor:default}
+.pager span{display:block;font-size:10px;color:var(--fg-mute);margin-bottom:3px;letter-spacing:.1em}
+.pager button:last-child{text-align:right}
+
+/* ============================================================
+   Responsive — tablet / desktop
+   ============================================================ */
+@media (min-width:700px){
+  body{font-size:15.5px}
+  .grid2{grid-template-columns:1fr 1fr}
+  .shell{padding:0 26px}
+  .tab{padding:0 18px;font-size:12.5px}
+}
+
+@media (min-width:1024px){
+  :root{--maxw:1180px}
+  .layout{display:grid;grid-template-columns:224px 1fr;gap:34px;align-items:start}
+  .side{
+    display:block;position:sticky;top:calc(var(--tab-h) + 34px);
+    padding:26px 0 0;
+  }
+  .side__t{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    color:var(--fg-mute);margin:0 0 10px;padding-left:10px;text-transform:uppercase;
+  }
+  .side__list{list-style:none;margin:0;padding:0}
+  .side__list button{
+    width:100%;text-align:left;display:flex;gap:9px;align-items:baseline;
+    font-family:var(--mono);font-size:12px;
+    background:transparent;border:0;border-left:2px solid transparent;
+    color:var(--fg-mute);padding:7px 10px;cursor:pointer;transition:all .14s;
+  }
+  .side__list button:hover{color:var(--fg-dim);background:var(--surface)}
+  .side__list button[aria-current="true"]{
+    color:var(--fg);border-left-color:var(--blue);background:var(--surface);
+  }
+  .side__n{font-size:9.5px;color:var(--fg-mute)}
+  .side__meta{
+    margin-top:22px;padding:12px 10px;border-top:1px solid var(--line-soft);
+    font-family:var(--mono);font-size:10px;color:var(--fg-mute);line-height:1.9;
+  }
+  .view{padding-top:26px}
+  .lab{padding:20px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<header class="chrome">
+  <div class="chrome__brand">
+    <span class="chrome__dot chrome__dot--r"></span>
+    <span class="chrome__dot chrome__dot--y"></span>
+    <span class="chrome__dot chrome__dot--g"></span>
+    <span class="chrome__path">docs/design/<b id="crumb">overview.md</b></span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="セクション">
+    <button class="tab" role="tab" data-go="overview" aria-selected="true"><span class="tab__num">00</span>概要</button>
+    <button class="tab" role="tab" data-go="axis1" aria-selected="false"><span class="tab__num">01</span>構造</button>
+    <button class="tab" role="tab" data-go="axis2" aria-selected="false"><span class="tab__num">02</span>型安全度</button>
+    <button class="tab" role="tab" data-go="axis3" aria-selected="false"><span class="tab__num">03</span>文言</button>
+    <button class="tab" role="tab" data-go="dict" aria-selected="false"><span class="tab__num">04</span>辞書運用</button>
+    <button class="tab" role="tab" data-go="road" aria-selected="false"><span class="tab__num">05</span>導入順</button>
+  </nav>
+</header>
+
+<div class="shell">
+<div class="layout">
+
+  <aside class="side">
+    <p class="side__t">Sections</p>
+    <ul class="side__list" id="sideNav">
+      <li><button data-go="overview" aria-current="true"><span class="side__n">00</span>概要と前提</button></li>
+      <li><button data-go="axis1"><span class="side__n">01</span>コンポーネント構造</button></li>
+      <li><button data-go="axis2"><span class="side__n">02</span>スタイルの型安全度</button></li>
+      <li><button data-go="axis3"><span class="side__n">03</span>文言・ラベル管理</button></li>
+      <li><button data-go="dict"><span class="side__n">04</span>辞書の運用ルール</button></li>
+      <li><button data-go="road"><span class="side__n">05</span>導入順序</button></li>
+    </ul>
+    <div class="side__meta">
+      target: job-matching<br>
+      audience: seeker / company<br>
+      stack: SvelteKit + TS
+    </div>
+  </aside>
+
+  <main id="main">
+
+<!-- ========================================================
+     00 OVERVIEW
+     ======================================================== -->
+<section class="view is-active" id="v-overview" role="tabpanel" aria-label="概要">
+  <p class="eyebrow">00 — Overview</p>
+  <h1 class="h1">設計方針まとめ<br><em>求人マッチングサイト</em> フロントエンド</h1>
+  <p class="lede">
+    コンポーネント構造・スタイルの型安全度・文言管理という3つの軸それぞれについて、何を採用し、なぜそれを採用するのかを整理した資料。
+    判断の根拠まで残すことを目的にしています。
+  </p>
+
+  <div class="verdict">
+    <span class="verdict__k">DECISION</span>
+    <span class="verdict__v">軸1 = 単一コンポーネント + DU + Record表<br>軸2 = as const satisfies<br>軸3 = Actionカタログ + intent軸 + 辞書運用</span>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">#</span>大原則</h2>
+  <div class="note note--ok">
+    <p class="note__t">Principle</p>
+    <p><strong>コンポーネントは「重複を消す装置」ではなく「変更を閉じ込める装置」。</strong></p>
+    <p class="muted" style="margin-top:8px">
+      DRYを目的にすると「似ているか?」という主観の議論になり、意見が割れます。
+      「一緒に変わるか?」は事実なので、こちらを判断軸にします。
+      似ている(現在の形が同じ)と、一緒に変わる(将来の運命が同じ)は別物です。
+    </p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">#</span>前提となるサービスの性質</h2>
+  <p>POSのような業務システムと比べたとき、この事業には3つの構造的な違いがあります。これが設計判断に直結します。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>観点</th><th>業務システム</th><th>求人マッチング</th><th>影響</th></tr></thead>
+      <tbody>
+        <tr><td>利用者</td><td>単一(店舗スタッフ)</td><td><strong>二面(求職者 / 企業)</strong></td><td>語彙が面ごとに変わる</td></tr>
+        <tr><td>主な操作</td><td>会計・注文(即時)</td><td><strong>フォーム・検索・応募</strong></td><td>バリデーションが桁違いに多い</td></tr>
+        <tr><td>公開性</td><td>社内端末</td><td><strong>公開Webサイト</strong></td><td>a11y と SEO が実質要件</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">#</span>4つの軸と、それぞれの器</h2>
+  <p>
+    設計の議論が噛み合わなくなる原因は、性質の違う4つの軸を1つのコンポーネントで同時に扱おうとすることにあります。
+    軸ごとに別の器を用意すると、判断が単純になります。図の箱をタップすると各セクションに移動します。
+  </p>
+
+  <div class="fig">
+    <svg viewBox="0 0 660 330" role="img" aria-label="4つの軸と担当ファイルの対応図">
+      <text x="8" y="16" class="svg-ttl">AXIS → OWNER FILE</text>
+
+      <g class="hit" data-go="axis2">
+        <rect x="8" y="34" width="150" height="60" rx="7" class="svg-box"/>
+        <text x="20" y="56" class="svg-lbl" fill="#e0af68">見た目</text>
+        <text x="20" y="72" class="svg-sub">色 / 余白 / 角丸</text>
+        <text x="20" y="85" class="svg-sub">変更: 低・一括</text>
+      </g>
+      <path d="M158 64 H 236" class="svg-arrow" marker-end="url(#ar)"/>
+      <rect x="240" y="38" width="200" height="52" rx="6" class="svg-box"/>
+      <text x="252" y="60" class="svg-lbl" font-size="10">button-styles.ts</text>
+      <text x="252" y="76" class="svg-sub">Record 表 / トークン</text>
+
+      <g class="hit" data-go="axis1">
+        <rect x="8" y="106" width="150" height="60" rx="7" class="svg-box"/>
+        <text x="20" y="128" class="svg-lbl" fill="#7dcfff">DOM構造</text>
+        <text x="20" y="144" class="svg-sub">要素 / ARIA / focus</text>
+        <text x="20" y="157" class="svg-sub">変更: 極低</text>
+      </g>
+      <path d="M158 136 H 236" class="svg-arrow" marker-end="url(#ar)"/>
+      <rect x="240" y="110" width="200" height="52" rx="6" class="svg-box"/>
+      <text x="252" y="132" class="svg-lbl" font-size="10">Button.svelte</text>
+      <text x="252" y="148" class="svg-sub">プリミティブ</text>
+
+      <g class="hit" data-go="axis3">
+        <rect x="8" y="178" width="150" height="60" rx="7" class="svg-box"/>
+        <text x="20" y="200" class="svg-lbl" fill="#bb9af7">意味</text>
+        <text x="20" y="216" class="svg-sub">操作 / ドメイン用語</text>
+        <text x="20" y="229" class="svg-sub">変更: 中</text>
+      </g>
+      <path d="M158 208 H 236" class="svg-arrow" marker-end="url(#ar)"/>
+      <rect x="240" y="182" width="200" height="52" rx="6" class="svg-box"/>
+      <text x="252" y="204" class="svg-lbl" font-size="10">actions.ts / terms.ts</text>
+      <text x="252" y="220" class="svg-sub">カタログ</text>
+
+      <rect x="8" y="250" width="150" height="60" rx="7" class="svg-box"/>
+      <text x="20" y="272" class="svg-lbl" fill="#f7768e">振る舞い</text>
+      <text x="20" y="288" class="svg-sub">処理 / 状態遷移</text>
+      <text x="20" y="301" class="svg-sub">変更: 高</text>
+      <path d="M158 280 H 236" class="svg-arrow" marker-end="url(#ar)"/>
+      <rect x="240" y="254" width="200" height="52" rx="6" class="svg-box"/>
+      <text x="252" y="276" class="svg-lbl" font-size="10">domain/*.ts</text>
+      <text x="252" y="292" class="svg-sub">純粋関数 / DU</text>
+
+      <path d="M452 64 C 520 64, 520 170, 540 170" class="svg-arrow" stroke-dasharray="3 3"/>
+      <path d="M452 136 C 510 136, 510 170, 540 170" class="svg-arrow" stroke-dasharray="3 3"/>
+      <path d="M452 208 C 510 208, 510 175, 540 172" class="svg-arrow" stroke-dasharray="3 3"/>
+      <path d="M452 280 C 520 280, 520 178, 540 174" class="svg-arrow" stroke-dasharray="3 3"/>
+      <rect x="542" y="140" width="110" height="62" rx="7" class="svg-box svg-box--hot"/>
+      <text x="556" y="166" class="svg-lbl" fill="#9ece6a" font-size="10">画面</text>
+      <text x="556" y="182" class="svg-sub">合流点</text>
+      <text x="556" y="194" class="svg-sub">薄く保つ</text>
+
+      <defs>
+        <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/>
+        </marker>
+      </defs>
+    </svg>
+    <p class="fig__cap">// 画面コンポーネントは4つの器から値を引いてくるだけの薄い層になる</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">#</span>変更イベント シミュレータ</h2>
+  <p>
+    「共通化すべきか」を主観で議論する代わりに、<strong>起こりうる変更で何ファイル触るかを数えます</strong>。
+    数えれば決着がつくので、レビューが揉めません。イベントを選んでください。
+  </p>
+
+  <div class="lab">
+    <p class="lab__t">Impact Simulator</p>
+    <p class="lab__d">同じ変更を「分散管理」と「この設計」で比較します。ファイル数は概算です。</p>
+    <div class="ctl">
+      <span class="ctl__l">変更イベント</span>
+      <div class="seg" id="evSeg"></div>
+    </div>
+    <div class="out">
+      <p class="out__l">Impact</p>
+      <div class="meter">
+        <div class="meter__row">
+          <div class="meter__top"><span class="meter__name">分散管理(各画面に直書き)</span><span class="meter__val" style="color:var(--red)" id="evBad">–</span></div>
+          <div class="meter__track"><div class="meter__fill meter__fill--bad" id="evBadBar" style="width:0"></div></div>
+        </div>
+        <div class="meter__row">
+          <div class="meter__top"><span class="meter__name">この設計</span><span class="meter__val" style="color:var(--green)" id="evGood">–</span></div>
+          <div class="meter__track"><div class="meter__fill meter__fill--good" id="evGoodBar" style="width:0"></div></div>
+        </div>
+      </div>
+      <div class="filelist" id="evFiles"></div>
+      <p class="muted" id="evNote" style="margin:12px 0 0"></p>
+    </div>
+  </div>
+
+  <div class="note note--warn">
+    <p class="note__t">読み方</p>
+    <p><strong>1つのイベントで複数箇所を触る</strong>なら共通化が足りない。<strong>1つのファイルが複数のイベントで触られる</strong>なら分離が足りない。後者が見落とされがちです。</p>
+  </div>
+
+  <div class="pager" id="pg-overview"></div>
+</section>
+
+<!-- ========================================================
+     01 AXIS 1
+     ======================================================== -->
+<section class="view" id="v-axis1" role="tabpanel" aria-label="軸1 コンポーネント構造">
+  <p class="eyebrow">01 — Axis 1</p>
+  <h1 class="h1">コンポーネント<em>構造</em></h1>
+  <p class="lede">ボタンを1つのコンポーネントで表現するか、variantごとに分割するか。6つの候補を比較して案1を採用します。</p>
+
+  <div class="verdict">
+    <span class="verdict__k">ADOPT</span>
+    <span class="verdict__v">案1 — 単一コンポーネント + 判別共用体 + Record表</span>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">01.1</span>候補の比較</h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>#</th><th>案</th><th>共通スタイル</th><th>variantごとの型</th><th>網羅性</th><th>コスト</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>フラットなprops</td><td>△</td><td>✕</td><td>✕</td><td>低</td><td class="muted">反面教師</td></tr>
+        <tr class="row-pick"><td>1</td><td><strong>単一 + DU + Record表</strong></td><td>◯</td><td>✕</td><td>◯</td><td>低</td><td><span class="pick-tag">採用</span></td></tr>
+        <tr><td>2</td><td>kind別に分割</td><td>◯</td><td>△</td><td>△</td><td>中</td><td class="muted">React向き</td></tr>
+        <tr><td>3</td><td>スタイル関数の合成</td><td>◯</td><td>✕</td><td>◯</td><td>低</td><td class="muted">効果が案1と同等</td></tr>
+        <tr><td>4</td><td>シェル + variant分割</td><td>◯</td><td>◯</td><td>✕</td><td>中</td><td class="muted">網羅性を失う</td></tr>
+        <tr><td>5</td><td>案4 + ファサード表</td><td>◯</td><td>◯</td><td>◯</td><td>中〜高</td><td class="muted">移行先</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">
+    案1を選ぶ理由は「共通スタイルの共有」が目的ではありません。それは案1でも <code>BASE</code> 定数で達成済みです。
+    案4/5が本当に買うのは <strong>variantごとにpropsの形を変えられること</strong>で、今の要件では差分が1つしかないため釣り合いません。
+  </p>
+
+  <h2 class="h2"><span class="h2__n">01.2</span>2つの軸を交差させる</h2>
+  <p>ボタンには性質の違う軸が混ざっています。<strong>見た目(intent)</strong>と<strong>振る舞い(kind)</strong>を別々のDUにして、交差型で合成します。9パターンを手で書く必要はありません。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 640 300" role="img" aria-label="Appearance と Behavior の交差型合成図">
+      <text x="8" y="16" class="svg-ttl">APPEARANCE × BEHAVIOR = PROPS</text>
+
+      <rect x="8" y="30" width="180" height="130" rx="8" class="svg-box"/>
+      <text x="22" y="52" class="svg-lbl" fill="#e0af68">Appearance</text>
+      <text x="22" y="74" class="svg-sub">primary      disabled ✓</text>
+      <text x="22" y="92" class="svg-sub">neutral      disabled ✗</text>
+      <text x="22" y="110" class="svg-sub">subtle       disabled ✗</text>
+      <text x="22" y="128" class="svg-sub">destructive  disabled ✓</text>
+      <text x="22" y="150" class="svg-sub" fill="#565f89">→ 見た目と無効化の可否</text>
+
+      <rect x="8" y="172" width="180" height="118" rx="8" class="svg-box"/>
+      <text x="22" y="194" class="svg-lbl" fill="#7dcfff">Behavior</text>
+      <text x="22" y="216" class="svg-sub">button   onClick 必須</text>
+      <text x="22" y="234" class="svg-sub">submit   form が処理</text>
+      <text x="22" y="252" class="svg-sub">link     href / disabled ✗</text>
+      <text x="22" y="274" class="svg-sub" fill="#565f89">→ 生成される要素</text>
+
+      <text x="212" y="164" font-family="JetBrains Mono, monospace" font-size="26" fill="#bb9af7">&amp;</text>
+      <path d="M192 95 C 220 95, 220 150, 248 150" class="svg-arrow"/>
+      <path d="M192 231 C 220 231, 220 155, 248 152" class="svg-arrow"/>
+
+      <rect x="252" y="88" width="200" height="128" rx="8" class="svg-box svg-box--hot"/>
+      <text x="266" y="112" class="svg-lbl" fill="#9ece6a">ButtonProps</text>
+      <text x="266" y="134" class="svg-sub">両方の制約を同時に満たす</text>
+      <text x="266" y="156" class="svg-sub" fill="#f7768e">boolean &amp; never = never</text>
+      <text x="266" y="176" class="svg-sub">↳ link は primary でも</text>
+      <text x="266" y="190" class="svg-sub">　 disabled にできない</text>
+      <text x="266" y="208" class="svg-sub" fill="#565f89">自動導出。手書きゼロ</text>
+
+      <path d="M456 152 H 500" class="svg-arrow" marker-end="url(#ar2)"/>
+      <rect x="504" y="118" width="128" height="68" rx="8" class="svg-box"/>
+      <text x="518" y="142" class="svg-lbl" font-size="10">呼び出し側</text>
+      <text x="518" y="160" class="svg-sub">不正な組み合わせは</text>
+      <text x="518" y="174" class="svg-sub" fill="#f7768e">コンパイルエラー</text>
+
+      <defs><marker id="ar2" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+    <p class="fig__cap">// 軸ごとに制約を宣言するだけで、正しい型が組み上がる</p>
+  </div>
+
+  <div class="code">
+    <div class="code__bar"><b>src/lib/components/Button/Button.types.ts</b><span>typescript</span></div>
+<pre><span class="k">export type</span> <span class="t">ButtonIntent</span> = <span class="s">'primary'</span> | <span class="s">'neutral'</span> | <span class="s">'subtle'</span> | <span class="s">'destructive'</span>;
+<span class="k">export type</span> <span class="t">ButtonSize</span>  = <span class="s">'sm'</span> | <span class="s">'md'</span> | <span class="s">'lg'</span>;
+<span class="k">export type</span> <span class="t">ButtonWidth</span> = <span class="s">'auto'</span> | <span class="s">'full'</span>;
+
+<span class="c">/** 見た目の軸: disabled を持てるかどうかがここで決まる */</span>
+<span class="k">type</span> <span class="t">Appearance</span> =
+  | { <span class="f">intent</span>: <span class="s">'primary'</span>;     <span class="f">disabled</span>?: <span class="t">boolean</span> }
+  | { <span class="f">intent</span>: <span class="s">'neutral'</span>;     <span class="f">disabled</span>?: <span class="t">never</span> }   <span class="c">// 存在しえない</span>
+  | { <span class="f">intent</span>: <span class="s">'subtle'</span>;      <span class="f">disabled</span>?: <span class="t">never</span> }
+  | { <span class="f">intent</span>: <span class="s">'destructive'</span>; <span class="f">disabled</span>?: <span class="t">boolean</span> };
+
+<span class="c">/** 振る舞いの軸: 生成する要素が決まる */</span>
+<span class="k">type</span> <span class="t">Behavior</span> =
+  | { <span class="f">kind</span>: <span class="s">'button'</span>; <span class="f">onClick</span>: () =&gt; <span class="t">void</span> }
+  | { <span class="f">kind</span>: <span class="s">'submit'</span> }
+  | { <span class="f">kind</span>: <span class="s">'link'</span>; <span class="f">href</span>: <span class="t">string</span>; <span class="f">disabled</span>?: <span class="t">never</span> };
+
+<span class="c">/** 共起制約のない調整パラメータ */</span>
+<span class="k">type</span> <span class="t">Common</span> = {
+  <span class="f">size</span>?: <span class="t">ButtonSize</span>;
+  <span class="f">width</span>?: <span class="t">ButtonWidth</span>;
+};
+
+<span class="k">export type</span> <span class="t">ButtonProps</span> = <span class="t">Common</span> &amp; <span class="t">Appearance</span> &amp; <span class="t">Behavior</span>;</pre>
+  </div>
+
+  <div class="note">
+    <p class="note__t">なぜ disabled?: never なのか</p>
+    <p class="muted">
+      フィールドを単に省略するだけでは、ユニオン型に対する余剰プロパティチェックが緩く、他のメンバーに存在するプロパティは通ってしまうことがあります。
+      <code>never</code> と明示すれば確実にエラーになります。
+    </p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">01.3</span>props シミュレータ</h2>
+  <p>組み合わせを選んで、型が通るかどうかを確かめられます。<strong>不正な状態を表現できなくする</strong>という設計の実感が掴めるはずです。</p>
+
+  <div class="lab">
+    <p class="lab__t">Props Playground</p>
+    <p class="lab__d">intent / kind / disabled を切り替えると、型検査の結果とプレビューが変わります。</p>
+
+    <div class="ctl">
+      <span class="ctl__l">intent</span>
+      <div class="seg" id="pIntent">
+        <button data-v="primary" aria-pressed="true">primary</button>
+        <button data-v="neutral" aria-pressed="false">neutral</button>
+        <button data-v="subtle" aria-pressed="false">subtle</button>
+        <button data-v="destructive" aria-pressed="false">destructive</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl__l">kind</span>
+      <div class="seg" id="pKind">
+        <button data-v="button" aria-pressed="true">button</button>
+        <button data-v="submit" aria-pressed="false">submit</button>
+        <button data-v="link" aria-pressed="false">link</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl__l">size</span>
+      <div class="seg" id="pSize">
+        <button data-v="sm" aria-pressed="false">sm</button>
+        <button data-v="md" aria-pressed="true">md</button>
+        <button data-v="lg" aria-pressed="false">lg</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl__l">disabled</span>
+      <label class="switch">
+        <input type="checkbox" id="pDisabled">
+        <span class="switch__box"></span>
+        <span id="pDisabledLbl">disabled を指定する</span>
+      </label>
+    </div>
+
+    <div class="out">
+      <p class="out__l">Preview</p>
+      <div class="stage"><span id="pvBtn" class="pv pv--primary">応募する</span></div>
+      <div class="verdictline" id="pVerdict"><i>✓</i><span>型検査を通過します</span></div>
+    </div>
+
+    <div class="code" style="margin-bottom:0">
+      <div class="code__bar"><b>ApplyPanel.svelte</b><span id="pStatus">ok</span></div>
+<pre id="pCode"></pre>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">01.4</span>ディレクトリ構成</h2>
+  <div class="code">
+    <div class="code__bar"><b>tree</b><span>src/lib/components/Button</span></div>
+<pre>Button/
+├── <span class="f">index.ts</span>              <span class="c">// 公開API。ここ以外からimportさせない</span>
+├── <span class="f">Button.svelte</span>         <span class="c">// 要素の出し分けのみ</span>
+├── <span class="f">Button.types.ts</span>       <span class="c">// DU定義</span>
+├── <span class="f">button-styles.ts</span>      <span class="c">// トークン表 + 純粋関数</span>
+└── <span class="f">button-styles.test.ts</span> <span class="c">// 純粋関数の単体テスト</span></pre>
+  </div>
+  <p class="muted">
+    <code>index.ts</code> で公開範囲を絞るのはコストゼロで、将来シェル方式(案5)へ移行するときの下準備にもなります。
+    ESLint の <code>no-restricted-imports</code> で内部パスへの直接importを禁止すると、実質的に閉じます。
+  </p>
+
+  <h2 class="h2"><span class="h2__n">01.5</span>案5へ移行する合図</h2>
+  <p>いずれか2つ以上に当てはまったら、シェル + variant分割 + ファサード表への移行を検討します。求人サイトでは応募ボタンが起点になりやすい部分です。</p>
+  <div class="grid2">
+    <div class="card"><h4>props差分が2つ以上</h4><p>「primaryだけloadingを持つ」「destructiveだけ確認用propsを持つ」など。<code>never</code>による偽装が積み重なったら限界。</p></div>
+    <div class="card"><h4>intentが5つ以上</h4><p>分岐がテンプレートに並びすぎて読めなくなる。</p></div>
+    <div class="card"><h4>振る舞いが違ってくる</h4><p>destructiveだけ二重押下防止を内蔵する等。表は値しか返せないので、ここが分割の本当のトリガー。</p></div>
+    <div class="card"><h4>storyを分けたくなる</h4><p>ドキュメントの単位が分かれたら、実装も分かれるべきサイン。</p></div>
+  </div>
+
+  <div class="note note--warn">
+    <p class="note__t">二面性の吸収先に注意</p>
+    <p class="muted">求職者側と企業側で見た目の密度が変わりますが、これを <code>intent</code> で吸収すると組み合わせが爆発します。<strong>size / density のトークン軸かテーマ切り替えで扱い、intentを増やす方向に逃げない</strong>のが重要です。</p>
+  </div>
+
+  <div class="pager" id="pg-axis1"></div>
+</section>
+
+<!-- ========================================================
+     02 AXIS 2
+     ======================================================== -->
+<section class="view" id="v-axis2" role="tabpanel" aria-label="軸2 スタイルの型安全度">
+  <p class="eyebrow">02 — Axis 2</p>
+  <h1 class="h1">スタイルの<em>型安全度</em></h1>
+  <p class="lede">スタイルを分岐ではなくデータ(表)で持つことで、実装漏れをコンパイラに検出させます。どこまで締めるかを4段階で選びます。</p>
+
+  <div class="verdict">
+    <span class="verdict__k">ADOPT</span>
+    <span class="verdict__v">段階2 — as const satisfies Record&lt;Intent, string&gt;</span>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">02.1</span>なぜ分岐ではなく表なのか</h2>
+  <p>
+    分岐(<code>if</code> / <code>switch</code>)は<strong>コード</strong>なので、コンパイラは網羅性を追うのが苦手です。
+    表(<code>Record</code>)は<strong>データ</strong>なので、型システムが直接検査できます。
+  </p>
+
+  <div class="lab">
+    <p class="lab__t">Exhaustiveness Demo</p>
+    <p class="lab__d">intentに <code>'warning'</code> を追加したとき、両者がどう反応するかを比べます。</p>
+    <div class="ctl">
+      <span class="ctl__l">操作</span>
+      <div class="seg">
+        <button id="exhAdd" aria-pressed="false">intent に warning を追加する</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:0">
+      <div class="code" style="margin:0">
+        <div class="code__bar"><b>分岐で書いた場合</b><span id="exhIfSt" style="color:var(--green)">ok</span></div>
+<pre id="exhIf"></pre>
+      </div>
+      <div class="code" style="margin:0">
+        <div class="code__bar"><b>Record で書いた場合</b><span id="exhRecSt" style="color:var(--green)">ok</span></div>
+<pre id="exhRec"></pre>
+      </div>
+    </div>
+    <p class="muted" id="exhNote" style="margin:12px 0 0">追加ボタンを押すと差が出ます。</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">02.2</span>4段階のどこまでやるか</h2>
+  <p>スライダーを動かすと、その段階で守られるものと、支払うコストが変わります。</p>
+
+  <div class="lab">
+    <p class="lab__t">Safety Level</p>
+    <p class="lab__d">段階2を採用します。段階4はintentが10種類以上でないと割に合いません。</p>
+    <div class="ctl">
+      <span class="ctl__l">レベル</span>
+      <div class="seg" id="lvSeg">
+        <button data-v="1" aria-pressed="false">1 型注釈</button>
+        <button data-v="2" aria-pressed="true">2 as const satisfies</button>
+        <button data-v="3" aria-pressed="false">3 トークン分解</button>
+        <button data-v="4" aria-pressed="false">4 型レベル導出</button>
+      </div>
+    </div>
+    <div class="out">
+      <p class="out__l">Guards</p>
+      <div id="lvGuards"></div>
+    </div>
+    <div class="code" style="margin-bottom:0">
+      <div class="code__bar"><b id="lvFile">button-styles.ts</b><span id="lvCost">cost: low</span></div>
+<pre id="lvCode"></pre>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">02.3</span>satisfies が何をしているか</h2>
+  <p>型注釈は<strong>「検査」と「上書き」の2つの仕事を同時に</strong>やっています。<code>satisfies</code> は検査だけを行い、上書きをしません。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 640 230" role="img" aria-label="型注釈とsatisfiesとasの比較図">
+      <text x="8" y="16" class="svg-ttl">CHECK / OVERWRITE MATRIX</text>
+
+      <rect x="8" y="30" width="196" height="86" rx="8" class="svg-box"/>
+      <text x="22" y="52" class="svg-lbl">const x: T = 値</text>
+      <text x="22" y="74" class="svg-sub" fill="#9ece6a">検査する ✓</text>
+      <text x="22" y="92" class="svg-sub" fill="#f7768e">型を上書きする ✓</text>
+      <text x="22" y="108" class="svg-sub" fill="#565f89">中身の具体性が消える</text>
+
+      <rect x="216" y="30" width="196" height="86" rx="8" class="svg-box"/>
+      <text x="230" y="52" class="svg-lbl">値 as T</text>
+      <text x="230" y="74" class="svg-sub" fill="#f7768e">検査しない ✗</text>
+      <text x="230" y="92" class="svg-sub" fill="#f7768e">型を上書きする ✓</text>
+      <text x="230" y="108" class="svg-sub" fill="#565f89">最も危険</text>
+
+      <rect x="424" y="30" width="208" height="86" rx="8" class="svg-box svg-box--hot"/>
+      <text x="438" y="52" class="svg-lbl" fill="#9ece6a">値 satisfies T</text>
+      <text x="438" y="74" class="svg-sub" fill="#9ece6a">検査する ✓</text>
+      <text x="438" y="92" class="svg-sub" fill="#9ece6a">上書きしない ✗</text>
+      <text x="438" y="108" class="svg-sub" fill="#565f89">as の正反対</text>
+
+      <rect x="8" y="134" width="624" height="82" rx="8" class="svg-box"/>
+      <text x="22" y="156" class="svg-lbl" font-size="10">実例</text>
+      <text x="22" y="178" class="svg-sub">const a: Record&lt;string, string|number&gt; = { port: 3000 }  →  a.port は string|number</text>
+      <text x="22" y="196" class="svg-sub" fill="#9ece6a">const b = { port: 3000 } satisfies Record&lt;string, string|number&gt;  →  b.port は number</text>
+      <text x="22" y="210" class="svg-sub" fill="#565f89">「型はチェックしてほしい、でも型を乗っ取らないでほしい」</text>
+    </svg>
+    <p class="fig__cap">// as は「検査せず上書き」、satisfies は「検査して上書きしない」。名前は似ているが性質は正反対</p>
+  </div>
+
+  <div class="note note--warn">
+    <p class="note__t">正直な注意</p>
+    <p class="muted">
+      値が単なる <code>string</code> の <code>Record&lt;Intent, string&gt;</code> では、<code>satisfies</code> の利得はほぼゼロです。
+      キー型がすでに有限ユニオンなので <code>keyof</code> の結果は変わりません。
+      それでも採用するのは、<strong>後からトークン表(段階3)へ育てるときに書き換えが不要</strong>だからです。
+      定数テーブルは最初からこの形にしておいて損がありません。
+    </p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">02.4</span>守れないもの</h2>
+  <div class="grid2">
+    <div class="card card--yes"><h4>◯ 守れる — 構造</h4>
+      <ul><li>全intentの実装が存在すること</li><li>存在しないキーを書いていないこと</li><li>型定義と表が1対1で同期し続けること</li></ul>
+    </div>
+    <div class="card card--no"><h4>✕ 守れない — 内容</h4>
+      <ul><li>クラス名のtypo(<code>text-nuetral-900</code>)</li><li>存在しない値(<code>bg-red-1000</code>)</li><li>competing class の衝突</li></ul>
+    </div>
+  </div>
+  <p class="muted">内容側は Tailwind CSS IntelliSense と ESLint に任せます。型で全部やろうとすると、記述量に対して見返りが合いません。</p>
+
+  <div class="note note--bad">
+    <p class="note__t">Tailwind の制約</p>
+    <p class="muted">
+      <code>bg-${color}-600</code> のような動的組み立ては禁止です。JITはソースを文字列としてスキャンするので、
+      <strong>完全なクラス名がリテラルとして存在しないとCSSが生成されません</strong>。表に完全な文字列を書く方式なら安全です。
+    </p>
+  </div>
+
+  <div class="pager" id="pg-axis2"></div>
+</section>
+
+<!-- ========================================================
+     03 AXIS 3
+     ======================================================== -->
+<section class="view" id="v-axis3" role="tabpanel" aria-label="軸3 文言とラベルの管理">
+  <p class="eyebrow">03 — Axis 3</p>
+  <h1 class="h1">文言・ラベル<em>管理</em></h1>
+  <p class="lede">ラベルもvariantも「操作」から導出される従属物です。操作そのものをカタログ化し、そこから見た目と文言を導きます。</p>
+
+  <div class="verdict">
+    <span class="verdict__k">ADOPT</span>
+    <span class="verdict__v">案4 — Actionカタログ + intent軸<br>+ needsConfirm を intent から分離</span>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">03.1</span>却下した案</h2>
+  <div class="note note--bad">
+    <p class="note__t">✕ label を文字列ユニオンで制約する</p>
+    <p class="muted">
+      <code>{ intent: 'destructive'; label: '削除する' | '取り消す' }</code> のような形は採用しません。
+      ① 文字列は識別子ではない(「キャンセル」がフォーム離脱にも応募取消にも使われる) /
+      ② コピー修正が型定義の修正になる /
+      ③ 多言語化で壊れる /
+      ④ 本当のバグ(destructiveが青く出る)を防げない。
+    </p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">03.2</span>操作を単一の真実にする</h2>
+  <p>呼び出し側は <code>action</code> だけを指定します。<strong>intentもlabelも指定できないので、規約が破れません</strong>。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 640 250" role="img" aria-label="Actionカタログから見た目と文言が導出される図">
+      <text x="8" y="16" class="svg-ttl">SINGLE SOURCE OF TRUTH</text>
+
+      <rect x="8" y="34" width="176" height="96" rx="8" class="svg-box svg-box--hot"/>
+      <text x="22" y="58" class="svg-lbl" fill="#9ece6a">ACTIONS</text>
+      <text x="22" y="78" class="svg-sub">applyJob</text>
+      <text x="22" y="94" class="svg-sub">　label: '応募する'</text>
+      <text x="22" y="110" class="svg-sub">　intent: 'primary'</text>
+      <text x="22" y="124" class="svg-sub">　needsConfirm: true</text>
+
+      <path d="M186 66 C 226 66, 226 52, 262 52" class="svg-arrow" marker-end="url(#ar3)"/>
+      <path d="M186 92 C 226 92, 226 120, 262 120" class="svg-arrow" marker-end="url(#ar3)"/>
+      <path d="M186 118 C 226 118, 226 188, 262 188" class="svg-arrow" marker-end="url(#ar3)"/>
+
+      <rect x="266" y="30" width="170" height="46" rx="7" class="svg-box"/>
+      <text x="280" y="50" class="svg-lbl" font-size="10">label</text>
+      <text x="280" y="66" class="svg-sub">そのまま表示</text>
+
+      <rect x="266" y="98" width="170" height="46" rx="7" class="svg-box"/>
+      <text x="280" y="118" class="svg-lbl" font-size="10">intent</text>
+      <text x="280" y="134" class="svg-sub">→ クラス表を引く</text>
+
+      <rect x="266" y="166" width="170" height="46" rx="7" class="svg-box"/>
+      <text x="280" y="186" class="svg-lbl" font-size="10">needsConfirm</text>
+      <text x="280" y="202" class="svg-sub">→ 確認ダイアログ</text>
+
+      <path d="M440 53 C 470 53, 470 116, 496 118" class="svg-arrow"/>
+      <path d="M440 121 H 496" class="svg-arrow" marker-end="url(#ar3)"/>
+      <path d="M440 189 C 470 189, 470 124, 496 122" class="svg-arrow"/>
+
+      <rect x="500" y="88" width="132" height="66" rx="8" class="svg-box"/>
+      <text x="514" y="112" class="svg-lbl" font-size="10">&lt;Button</text>
+      <text x="514" y="128" class="svg-sub">  action="applyJob"</text>
+      <text x="514" y="144" class="svg-lbl" font-size="10">/&gt;</text>
+
+      <text x="8" y="234" class="svg-sub" fill="#565f89">// 用語を変えても、色の規約を変えても、触るのは ACTIONS だけ</text>
+      <defs><marker id="ar3" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+    <p class="fig__cap">// label / intent / needsConfirm は不可分にセットなので、操作単位で持つ</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">03.3</span>intent と needsConfirm を分離する</h2>
+  <p>
+    業務システムでは「取り返しがつかない = 赤 = 確認が必要」が一致していました。
+    <strong>求人サイトでは一致しません。</strong>ここが前提変更で最も効いた設計要件です。
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>取り返しがつかない</th><th>赤くすべきか</th><th>理由</th></tr></thead>
+      <tbody>
+        <tr><td>応募する</td><td style="color:var(--green)">はい</td><td style="color:var(--red)">いいえ</td><td>主要CTA。赤は不適切</td></tr>
+        <tr><td>選考を見送る</td><td style="color:var(--green)">はい</td><td style="color:var(--red)">いいえ</td><td>企業側の通常業務。赤は配慮を欠く</td></tr>
+        <tr><td>掲載を終了する</td><td style="color:var(--green)">はい</td><td style="color:var(--yellow)">どちらとも</td><td>再掲載は可能</td></tr>
+        <tr><td>アカウントを削除する</td><td style="color:var(--green)">はい</td><td style="color:var(--green)">はい</td><td>完全に不可逆</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note note--ok">
+    <p class="note__t">結論</p>
+    <p><code>needsConfirm</code> を <code>intent</code> から独立させることで、<strong>「赤くはしないが確認は取る」が表現できる</strong>ようになります。</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">03.4</span>カタログ ブラウザ</h2>
+  <p>面を切り替えて、各操作がどう見えて何が起きるかを確認できます。</p>
+
+  <div class="lab">
+    <p class="lab__t">ACTIONS Catalog</p>
+    <p class="lab__d">操作を選ぶと、レンダリング結果と定義が表示されます。</p>
+    <div class="ctl">
+      <span class="ctl__l">audience</span>
+      <div class="seg" id="audSeg">
+        <button data-v="seeker" aria-pressed="true">求職者</button>
+        <button data-v="company" aria-pressed="false">企業</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl__l">action</span>
+      <div class="seg" id="actSeg"></div>
+    </div>
+    <div class="out">
+      <p class="out__l">Rendered</p>
+      <div class="stage"><span id="actBtn" class="pv pv--primary">応募する</span></div>
+      <div id="actConfirm" style="margin-top:12px"></div>
+    </div>
+    <div class="code" style="margin-bottom:0">
+      <div class="code__bar"><b id="actFile">actions/seeker.ts</b><span>entry</span></div>
+<pre id="actCode"></pre>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">03.5</span>逃げ道を用意する</h2>
+  <p>デザインシステムには必ず例外が出ます。ただし<strong>目立つ形で</strong>書けるようにします。</p>
+  <div class="code">
+    <div class="code__bar"><b>Button.types.ts</b><span>escape hatch</span></div>
+<pre><span class="k">export type</span> <span class="t">ButtonProps</span> = <span class="t">Common</span> &amp; <span class="t">Behavior</span> &amp; {
+  <span class="f">action</span>: <span class="t">ActionName</span>;
+  <span class="c">/** カタログの規約から外れる場合のみ。理由をコメントで残すこと */</span>
+  <span class="f">overrideIntent</span>?: <span class="t">ButtonIntent</span>;
+};</pre>
+  </div>
+  <p class="muted"><code>intent</code> ではなく <code>overrideIntent</code> という名前にすることで、レビューで「なぜ?」と聞かれる状態を作れます。命名で運用を誘導するテクニックです。</p>
+
+  <div class="pager" id="pg-axis3"></div>
+</section>
+
+<!-- ========================================================
+     04 DICTIONARY
+     ======================================================== -->
+<section class="view" id="v-dict" role="tabpanel" aria-label="辞書の運用ルール">
+  <p class="eyebrow">04 — Operation</p>
+  <h1 class="h1">辞書の<em>運用ルール</em></h1>
+  <p class="lede">頻度は基準になりません。「よく使う文言」ではなく「変更されうる、または統一が必要な語彙」を辞書化します。</p>
+
+  <div class="note note--warn">
+    <p class="note__t">頻度は逆転する</p>
+    <div class="tw" style="margin:10px 0 0">
+      <table style="min-width:380px">
+        <thead><tr><th>文言</th><th>出現頻度</th><th>辞書化の価値</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>「閉じる」</td><td>最多</td><td style="color:var(--red)">最低</td><td>変更されず、揺れても実害がない</td></tr>
+          <tr><td>「選考を見送る」</td><td>1〜2箇所</td><td style="color:var(--green)">最高</td><td>センシティブ。レビューが入り、実際に変わる</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.1</span>4分類の判定器</h2>
+  <p>文言を見たときにどこへ入れるかを決めるフローです。実際に手を動かして確かめてください。</p>
+
+  <div class="lab">
+    <p class="lab__t">Where does it go?</p>
+    <p class="lab__d">3問以内で分類先が決まります。</p>
+    <p class="judge__crumbs" id="jCrumbs"></p>
+    <div id="jBody">
+      <p class="judge__q" id="jQ"></p>
+      <div class="judge__opts" id="jOpts"></div>
+    </div>
+    <div id="jRes" style="display:none"></div>
+    <div style="margin-top:14px"><button class="btn-ghost" id="jReset">最初から</button></div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.2</span>置き場所の全体像</h2>
+  <div class="fig">
+    <svg viewBox="0 0 640 330" role="img" aria-label="文言の分類と配置先のフロー図">
+      <text x="8" y="16" class="svg-ttl">TEXT ROUTING</text>
+
+      <rect x="230" y="28" width="180" height="38" rx="19" class="svg-box"/>
+      <text x="320" y="52" class="svg-lbl" text-anchor="middle">文言が発生</text>
+
+      <path d="M320 66 V 92" class="svg-arrow" marker-end="url(#ar4)"/>
+      <rect x="230" y="94" width="180" height="34" rx="6" class="svg-box"/>
+      <text x="320" y="115" class="svg-sub" text-anchor="middle">操作(ボタン/メニュー)か?</text>
+
+      <path d="M230 111 H 150 V 168" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="176" y="105" class="svg-sub" fill="#9ece6a">yes</text>
+      <rect x="60" y="170" width="180" height="56" rx="7" class="svg-box"/>
+      <text x="74" y="192" class="svg-lbl" font-size="10" fill="#7aa2f7">domain/actions/*.ts</text>
+      <text x="74" y="210" class="svg-sub">label + intent + needsConfirm</text>
+      <text x="74" y="222" class="svg-sub" fill="#565f89">不可分なので操作単位で持つ</text>
+
+      <path d="M320 128 V 148" class="svg-arrow" marker-end="url(#ar4)"/>
+      <rect x="230" y="150" width="180" height="34" rx="6" class="svg-box"/>
+      <text x="320" y="171" class="svg-sub" text-anchor="middle">ドメイン用語か?</text>
+
+      <path d="M410 167 H 486 V 200" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="436" y="161" class="svg-sub" fill="#9ece6a">yes</text>
+      <rect x="400" y="202" width="180" height="56" rx="7" class="svg-box"/>
+      <text x="414" y="224" class="svg-lbl" font-size="10" fill="#bb9af7">messages/terms.ts</text>
+      <text x="414" y="242" class="svg-sub">求人 / 応募 / 選考 / 職種</text>
+      <text x="414" y="254" class="svg-sub" fill="#565f89">二面性に注意</text>
+
+      <path d="M320 184 V 204" class="svg-arrow" marker-end="url(#ar4)"/>
+      <rect x="230" y="206" width="180" height="34" rx="6" class="svg-box"/>
+      <text x="320" y="227" class="svg-sub" text-anchor="middle">ロジック由来か?</text>
+
+      <path d="M230 223 H 150 V 264" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="176" y="217" class="svg-sub" fill="#9ece6a">yes</text>
+      <rect x="60" y="266" width="180" height="56" rx="7" class="svg-box"/>
+      <text x="74" y="288" class="svg-lbl" font-size="10" fill="#ff9e64">domain DU + messages/</text>
+      <text x="74" y="306" class="svg-sub">エラー / 状態表示</text>
+      <text x="74" y="318" class="svg-sub" fill="#565f89">resolve関数で変換</text>
+
+      <path d="M320 240 V 268" class="svg-arrow" marker-end="url(#ar4)"/>
+      <text x="330" y="258" class="svg-sub" fill="#f7768e">no</text>
+      <rect x="248" y="270" width="144" height="50" rx="7" class="svg-box"/>
+      <text x="262" y="292" class="svg-lbl" font-size="10" fill="#a9b1d6">直書き</text>
+      <text x="262" y="310" class="svg-sub">3箇所目で再検討</text>
+
+      <defs><marker id="ar4" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="#565f89"/></marker></defs>
+    </svg>
+    <p class="fig__cap">// 予測で辞書に入れない。3箇所目に出たときが構造的な重複のサイン</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.3</span>二面性の扱い</h2>
+  <p>同じ概念でも、求職者側と企業側で呼び方が変わります。これを1つのフラットな辞書に入れると、文脈によって正しかったり間違ったりする最悪の状態になります。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>概念</th><th>求職者向け</th><th>企業向け</th></tr></thead>
+      <tbody>
+        <tr><td>ブックマーク機能</td><td>気になる</td><td>検討中リスト</td></tr>
+        <tr><td>応募という行為</td><td>応募する</td><td>エントリー</td></tr>
+        <tr><td>相手</td><td>企業</td><td>応募者 / 候補者</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>対処は2案あります。<strong>どちらでもいいので最初に決める</strong>ことが重要です。</p>
+  <div class="grid2">
+    <div class="card"><h4>案A — audience を軸にする</h4><p>共有概念(職種・雇用形態・勤務地)が多い場合。求人サイトはこちら寄り。</p>
+      <div class="code" style="margin:10px 0 0"><pre style="font-size:11px">{ <span class="f">application</span>: {
+  <span class="f">seeker</span>: <span class="s">'応募'</span>,
+  <span class="f">company</span>: <span class="s">'エントリー'</span>
+}}</pre></div>
+    </div>
+    <div class="card"><h4>案B — カタログを分ける</h4><p>語彙がほぼ重ならない場合。</p>
+      <div class="code" style="margin:10px 0 0"><pre style="font-size:11px">messages/terms/
+├── seeker.ts
+├── company.ts
+└── index.ts</pre></div>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.4</span>キー設計のルール</h2>
+  <p>キーは<strong>意味で作ります</strong>。場所や見た目でキーを作ると、移動・変更で意味を失います。</p>
+  <div class="grid2">
+    <div class="card card--yes"><h4>◯ 意味がキー</h4>
+      <div class="taglist"><span class="tagx">applyJob</span><span class="tagx">rejectApplicant</span><span class="tagx">closeJobPosting</span></div>
+      <p>操作や概念そのものを指しているので、UIが変わっても生き残る。</p>
+    </div>
+    <div class="card card--no"><h4>✕ 場所・見た目・汎用</h4>
+      <div class="taglist"><span class="tagx">detailPageButton1</span><span class="tagx">blueButtonText</span><span class="tagx">common.cancel</span></div>
+      <p><code>common.cancel</code> が特に危険。「フォーム離脱」と「応募取消」を同じエントリにまとめる入口になります。</p>
+    </div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.5</span>エラー文言の3層構造</h2>
+  <p>
+    求人サイトはフォームの塊なので、ここが最も効きます。
+    <strong>ドメイン層はDUを返し、文字列への変換は表示の直前で1回だけ行います。</strong>
+    こうするとバリデーションのテストが文言に依存しなくなります。
+  </p>
+  <div class="code">
+    <div class="code__bar"><b>domain/validation-error.ts</b><span>1. ドメイン</span></div>
+<pre><span class="k">export type</span> <span class="t">ValidationError</span> =
+  | { <span class="f">type</span>: <span class="s">'required'</span>;      <span class="f">field</span>: <span class="t">FieldName</span> }
+  | { <span class="f">type</span>: <span class="s">'tooLong'</span>;       <span class="f">field</span>: <span class="t">FieldName</span>; <span class="f">max</span>: <span class="t">number</span> }
+  | { <span class="f">type</span>: <span class="s">'invalidFormat'</span>; <span class="f">field</span>: <span class="t">FieldName</span> }
+  | { <span class="f">type</span>: <span class="s">'duplicated'</span>;    <span class="f">field</span>: <span class="t">FieldName</span> };
+<span class="c">// max を数値のまま保持できるのが文字列との決定的な差</span></pre>
+  </div>
+  <div class="code">
+    <div class="code__bar"><b>messages/ja.ts</b><span>2. カタログ</span></div>
+<pre><span class="k">type</span> <span class="t">MessageCatalog</span> = {
+  [<span class="t">K</span> <span class="k">in</span> <span class="t">ValidationError</span>[<span class="s">'type'</span>]]:
+    (<span class="f">e</span>: <span class="t">Extract</span>&lt;<span class="t">ValidationError</span>, { <span class="f">type</span>: <span class="t">K</span> }&gt;) =&gt; <span class="t">string</span>;
+};
+
+<span class="k">export const</span> <span class="f">validationMessages</span> = {
+  <span class="f">required</span>: (e) =&gt; <span class="s">`${labelOf(e.field)}は必須です`</span>,
+  <span class="f">tooLong</span>:  (e) =&gt; <span class="s">`${labelOf(e.field)}は${e.max}文字以内で入力してください`</span>,
+  <span class="f">invalidFormat</span>: (e) =&gt; <span class="s">`${labelOf(e.field)}の形式が正しくありません`</span>,
+  <span class="f">duplicated</span>: (e) =&gt; <span class="s">`この${labelOf(e.field)}はすでに使われています`</span>,
+} <span class="k">as const satisfies</span> <span class="t">MessageCatalog</span>;
+<span class="c">// エラーを1種類追加すると、ここがコンパイルエラーになる</span></pre>
+  </div>
+  <div class="code">
+    <div class="code__bar"><b>ProfileForm.svelte</b><span>3. 表示</span></div>
+<pre><span class="k">const</span> <span class="f">message</span> = $derived(
+  error ? resolveValidationMessage(error) : <span class="k">null</span>
+);
+<span class="c">// テンプレートは値を投影するだけの薄い層</span></pre>
+  </div>
+
+  <div class="note note--ok">
+    <p class="note__t">依存の向き</p>
+    <p class="muted"><code>domain/</code> は <code>messages/</code> に依存しません。一方向なので、文言をいくら変えてもドメイン層は無傷です。</p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">04.6</span>事業側に確認すること</h2>
+  <div class="note note--warn">
+    <p class="note__t">多言語対応の予定</p>
+    <p class="muted">
+      外国人求職者向けの多言語対応が事業計画にあるなら、<strong>i18nライブラリを最初から入れます</strong>(Paraglide JS / typesafe-i18n など)。
+      自前辞書からの移行は文言の量に比例してつらくなるため、ここだけは実装判断ではなく事業判断です。予定が無いなら不要。
+    </p>
+  </div>
+
+  <div class="pager" id="pg-dict"></div>
+</section>
+
+<!-- ========================================================
+     05 ROADMAP
+     ======================================================== -->
+<section class="view" id="v-road" role="tabpanel" aria-label="導入順序">
+  <p class="eyebrow">05 — Roadmap</p>
+  <h1 class="h1">導入<em>順序</em></h1>
+  <p class="lede">1〜3は今すぐ着手でき、合計で半日〜1日程度。4はフォームを書き始める前に決めておくと後戻りがありません。タップで進捗を記録できます(ページを閉じるとリセットされます)。</p>
+
+  <div class="progress">
+    <span id="pgTxt">0 / 6</span>
+    <span class="progress__track"><span class="progress__fill" id="pgFill"></span></span>
+  </div>
+  <ol class="steps" id="steps"></ol>
+
+  <h2 class="h2"><span class="h2__n">05.1</span>今回やらないこと</h2>
+  <p>やらない判断も記録しておくと、後から「なぜ入れなかったのか」を再検討できます。</p>
+  <div class="grid2">
+    <div class="card card--no"><h4>型レベルフィルタ</h4><p><code>KeysWhere</code> のような導出型。intentが4つなら手書きのほうが圧倒的に読みやすい。10種類以上になったら再検討。</p></div>
+    <div class="card card--no"><h4>Brand型 / opaque type</h4><p>シェルコンポーネントが存在しないため、そもそも発生しない問題。案5へ移行したときに再検討。</p></div>
+    <div class="card card--no"><h4>label の文字列ユニオン制約</h4><p>却下のまま。多言語化とコピー修正で確実に壊れる。</p></div>
+    <div class="card card--no"><h4>全ボタンのカタログ化</h4><p>1箇所しか使わない文言まで入れると、辞書を開かないとUIが読めないコードになる。</p></div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">05.2</span>4軸の外で優先度が高いもの</h2>
+  <p>ボタン設計より先に効く、または並行して進めるべき項目です。</p>
+  <div class="grid2">
+    <div class="card"><h4>1. エラーメッセージの3層構造</h4><p><strong>最優先。</strong>会員登録・プロフィール・職務経歴・求人投稿・応募フォーム。バリデーションの種類が業務システムより一桁多く、表示先も文脈で変わります。</p></div>
+    <div class="card"><h4>2. AsyncBoundary</h4><p>検索結果・応募者一覧・スカウト・通知が同じ4状態を持ちます。<strong>空状態が事業KPIに直結する</strong>ため、改善を1箇所に閉じ込める価値が高い。一覧が3画面目に達したら導入。</p></div>
+    <div class="card"><h4>3. DOM構造 / a11y</h4><p>公開サイトかつ求人という性質上、実質的な要件。<code>&lt;button&gt;</code>と<code>&lt;a&gt;</code>の使い分け、ラベル紐付け、<code>aria-live</code>、フォーカス順序。ここは主導していい領域。</p></div>
+    <div class="card"><h4>4. 用語集の作成</h4><p>実装より先に事業側と語彙を突き合わせる。二面性という論点が最初から存在するため、後から統一するほうが高コストです。</p></div>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">05.3</span>チームで合意を作る</h2>
+  <div class="note">
+    <p class="note__t">運用の提案</p>
+    <p class="muted">
+      「変更イベント表」をデザインシステムのREADMEに置き、<strong>この変更が来たときどこを触るか</strong>を明記します。
+      そうすると議論が「どっちが綺麗か」から「このイベントで何ファイル触るか」に移り、数えれば決着がつく状態になります。
+    </p>
+  </div>
+
+  <h2 class="h2"><span class="h2__n">05.4</span>調べるときのキーワード</h2>
+  <p class="muted">この領域は日本語の情報が少ないので、関数型言語コミュニティ側の呼び名で検索すると本質的な記事に当たります。フレームワーク名を外すのがコツです。</p>
+  <div class="taglist">
+    <span class="tagx">Making Impossible States Impossible</span>
+    <span class="tagx">Parse, don't validate</span>
+    <span class="tagx">Type-Driven Development</span>
+    <span class="tagx">Discriminated Union Props</span>
+    <span class="tagx">Component API Design</span>
+    <span class="tagx">Design Tokens</span>
+    <span class="tagx">Semantic vs Presentational naming</span>
+    <span class="tagx">Connascence</span>
+    <span class="tagx">AHA Programming</span>
+    <span class="tagx">The Wrong Abstraction</span>
+    <span class="tagx">Information Hiding</span>
+    <span class="tagx">WAI-ARIA Authoring Practices</span>
+  </div>
+
+  <div class="pager" id="pg-road"></div>
+</section>
+
+  </main>
+</div>
+</div>
+
+<footer class="status">
+  <span class="status__mode">NORMAL</span>
+  <span class="status__file" id="stFile">docs/design/overview.md</span>
+  <span class="status__pos" id="stPos">1/6</span>
+</footer>
+
+<script>
+'use strict';
+
+/* ============================================================
+   Router
+   ============================================================ */
+const PAGES = [
+  { id:'overview', file:'overview.md',   title:'概要と前提' },
+  { id:'axis1',    file:'axis1-structure.md', title:'コンポーネント構造' },
+  { id:'axis2',    file:'axis2-type-safety.md', title:'スタイルの型安全度' },
+  { id:'axis3',    file:'axis3-wording.md', title:'文言・ラベル管理' },
+  { id:'dict',     file:'dictionary-ops.md', title:'辞書の運用ルール' },
+  { id:'road',     file:'roadmap.md',     title:'導入順序' }
+];
+
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+
+function go(id, push){
+  const i = PAGES.findIndex(p => p.id === id);
+  const page = i >= 0 ? PAGES[i] : PAGES[0];
+
+  $$('.view').forEach(v => v.classList.toggle('is-active', v.id === 'v-' + page.id));
+  $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.go === page.id)));
+  $$('#sideNav button').forEach(b => b.setAttribute('aria-current', String(b.dataset.go === page.id)));
+
+  $('#crumb').textContent  = page.file;
+  $('#stFile').textContent = 'docs/design/' + page.file;
+  $('#stPos').textContent  = (i + 1) + '/' + PAGES.length;
+  document.title = page.title + ' — 設計方針まとめ';
+
+  if (push !== false && location.hash !== '#' + page.id) {
+    history.pushState(null, '', '#' + page.id);
+  }
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-go]');
+  if (!el) return;
+  e.preventDefault();
+  go(el.dataset.go);
+});
+window.addEventListener('popstate', () => go((location.hash || '#overview').slice(1), false));
+
+/* pagers */
+PAGES.forEach((p, i) => {
+  const host = document.getElementById('pg-' + p.id);
+  if (!host) return;
+  const prev = PAGES[i - 1], next = PAGES[i + 1];
+  host.innerHTML =
+    (prev ? '<button data-go="' + prev.id + '"><span>← PREV</span>' + prev.title + '</button>'
+          : '<button disabled><span>← PREV</span>—</button>') +
+    (next ? '<button data-go="' + next.id + '"><span>NEXT →</span>' + next.title + '</button>'
+          : '<button disabled><span>NEXT →</span>—</button>');
+});
+
+/* ============================================================
+   Overview — impact simulator
+   ============================================================ */
+const EVENTS = [
+  { k:'E1', n:'ブランドの主要色が変わる', bad:24, good:1,
+    files:['button-styles.ts'],
+    note:'色はトークン表にしか存在しないので、1ファイルで完結します。' },
+  { k:'E2', n:'ボタンの角丸を 4px → 8px に変える', bad:24, good:1,
+    files:['button-styles.ts'],
+    note:'SIZE表が高さ・文字サイズ・角丸をセットで持っているため、まとめて変わります。' },
+  { k:'E3', n:'破壊的操作すべてに確認を必須化', bad:18, good:2,
+    files:['domain/actions/*.ts','Button.svelte'],
+    note:'needsConfirm を intent から独立させてあるので、カタログのフラグを立てるだけ。入れ忘れも起きません。' },
+  { k:'E4', n:'英語に対応する', bad:60, good:3,
+    files:['messages/ja.ts','messages/terms.ts','domain/actions/*.ts'],
+    note:'ロジックは一行も変わりません。カタログを差し替えるだけです。' },
+  { k:'E5', n:'「求人」を「案件」に統一する', bad:40, good:1,
+    files:['messages/terms.ts'],
+    note:'ドメイン用語を terms.ts に集約している効果が最も直接的に出ます。' },
+  { k:'E6', n:'アイコン付きボタンが必要になる', bad:24, good:3,
+    files:['Button.types.ts','Button.svelte','button-styles.ts'],
+    note:'DOM構造が変わる変更なので、ここが案5(シェル分割)への移行を検討する合図になります。' },
+  { k:'E7', n:'タップ領域を44px以上にする', bad:24, good:1,
+    files:['button-styles.ts'],
+    note:'アクセシビリティ要件はDOM/スタイル軸に閉じるため、外部基準の変更に強くなります。' }
+];
+
+(function initEvents(){
+  const seg = $('#evSeg');
+  seg.innerHTML = EVENTS.map((e, i) =>
+    '<button data-i="' + i + '" aria-pressed="' + (i === 0) + '">' + e.k + '</button>').join('');
+
+  function render(i){
+    const e = EVENTS[i];
+    const max = Math.max(e.bad, 60);
+    $('#evBad').textContent  = e.bad + ' ファイル';
+    $('#evGood').textContent = e.good + ' ファイル';
+    $('#evBadBar').style.width  = Math.round(e.bad / max * 100) + '%';
+    $('#evGoodBar').style.width = Math.max(2, Math.round(e.good / max * 100)) + '%';
+    $('#evFiles').innerHTML = e.files.map(f => '<span>› ' + f + '</span>').join('');
+    $('#evNote').textContent = e.n + ' — ' + e.note;
+    $$('#evSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === i)));
+  }
+  seg.addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (b) render(+b.dataset.i);
+  });
+  render(0);
+})();
+
+/* ============================================================
+   Axis1 — props playground
+   ============================================================ */
+(function initProps(){
+  const NO_DISABLED = ['neutral', 'subtle'];
+  const LABELS = {
+    primary:'応募する', neutral:'条件を変更', subtle:'あとで見る', destructive:'アカウントを削除'
+  };
+  const state = { intent:'primary', kind:'button', size:'md', disabled:false };
+
+  function bindSeg(sel, key){
+    $(sel).addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      state[key] = b.dataset.v;
+      $$(sel + ' button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      render();
+    });
+  }
+  bindSeg('#pIntent','intent');
+  bindSeg('#pKind','kind');
+  bindSeg('#pSize','size');
+  $('#pDisabled').addEventListener('change', e => { state.disabled = e.target.checked; render(); });
+
+  function check(){
+    if (!state.disabled) return null;
+    if (state.kind === 'link') {
+      return "kind: 'link' は disabled?: never — <a> に disabled 属性は存在しません";
+    }
+    if (NO_DISABLED.indexOf(state.intent) >= 0) {
+      return "intent: '" + state.intent + "' は disabled?: never — この見た目に無効状態は定義されていません";
+    }
+    return null;
+  }
+
+  function render(){
+    const err = check();
+    const btn = $('#pvBtn');
+
+    btn.className = 'pv pv--' + state.intent + (state.size === 'sm' ? ' pv--sm' : '');
+    btn.textContent = LABELS[state.intent];
+    btn.classList.toggle('is-off', state.disabled && !err);
+    if (state.size === 'lg') { btn.style.height = '52px'; btn.style.fontSize = '16px'; }
+    else { btn.style.height = ''; btn.style.fontSize = ''; }
+
+    const v = $('#pVerdict');
+    v.className = 'verdictline verdictline--' + (err ? 'ng' : 'ok');
+    v.innerHTML = '<i>' + (err ? '✕' : '✓') + '</i><span>' +
+      (err ? 'Type error — ' + err : '型検査を通過します') + '</span>';
+
+    $('#pStatus').textContent = err ? 'error' : 'ok';
+    $('#pStatus').style.color = err ? 'var(--red)' : 'var(--green)';
+
+    const extra =
+      state.kind === 'button' ? '\n  onClick={handleApply}' :
+      state.kind === 'link'   ? '\n  href="/jobs/123"' : '';
+    const dis = state.disabled ? '\n  disabled' : '';
+    const sz  = state.size !== 'md' ? '\n  size="' + state.size + '"' : '';
+
+    $('#pCode').innerHTML =
+      '&lt;<span class="t">Button</span>\n' +
+      '  <span class="f">kind</span>=<span class="s">"' + state.kind + '"</span>\n' +
+      '  <span class="f">intent</span>=<span class="s">"' + state.intent + '"</span>' +
+      sz.replace('size="','<span class="f">size</span>=<span class="s">"').replace(/"$/,'"</span>') +
+      (extra ? extra.replace(/(onClick|href)/, '<span class="f">$1</span>') : '') +
+      (dis ? '\n  <span class="' + (err ? 'e' : 'f') + '">disabled</span>' : '') +
+      '\n/&gt;' +
+      (err ? '\n\n<span class="e">// ✕ ' + err + '</span>' : '');
+  }
+  render();
+})();
+
+/* ============================================================
+   Axis2 — exhaustiveness demo
+   ============================================================ */
+(function initExh(){
+  let added = false;
+  const btn = $('#exhAdd');
+
+  function render(){
+    const w = added ? "\n  | 'warning'" : '';
+    $('#exhIf').innerHTML =
+      '<span class="k">const</span> <span class="f">resolve</span> = (v: <span class="t">Intent</span>) =&gt; {\n' +
+      "  <span class=\"k\">if</span> (v === <span class=\"s\">'primary'</span>) <span class=\"k\">return</span> <span class=\"s\">'...'</span>;\n" +
+      "  <span class=\"k\">if</span> (v === <span class=\"s\">'neutral'</span>) <span class=\"k\">return</span> <span class=\"s\">'...'</span>;\n" +
+      "  <span class=\"k\">if</span> (v === <span class=\"s\">'subtle'</span>)  <span class=\"k\">return</span> <span class=\"s\">'...'</span>;\n" +
+      "  <span class=\"k\">if</span> (v === <span class=\"s\">'destructive'</span>) <span class=\"k\">return</span> <span class=\"s\">'...'</span>;\n" +
+      '  <span class="k">return</span> <span class="s">\'\'</span>;' +
+      (added ? ' <span class="e">// ← warning は黙って空文字</span>' : '') + '\n};';
+
+    $('#exhRec').innerHTML =
+      '<span class="k">const</span> <span class="f">VARIANT</span>: <span class="t">Record</span>&lt;<span class="t">Intent</span>, <span class="t">string</span>&gt; = {\n' +
+      "  <span class=\"f\">primary</span>: <span class=\"s\">'...'</span>,\n" +
+      "  <span class=\"f\">neutral</span>: <span class=\"s\">'...'</span>,\n" +
+      "  <span class=\"f\">subtle</span>: <span class=\"s\">'...'</span>,\n" +
+      "  <span class=\"f\">destructive</span>: <span class=\"s\">'...'</span>," +
+      (added ? '\n  <span class="e">// ✕ Property \'warning\' is missing</span>' : '') + '\n};';
+
+    $('#exhIfSt').textContent = added ? 'ok (バグ)' : 'ok';
+    $('#exhIfSt').style.color = added ? 'var(--orange)' : 'var(--green)';
+    $('#exhRecSt').textContent = added ? 'error' : 'ok';
+    $('#exhRecSt').style.color = added ? 'var(--red)' : 'var(--green)';
+
+    btn.textContent = added ? 'warning を取り消す' : 'intent に warning を追加する';
+    btn.setAttribute('aria-pressed', String(added));
+    $('#exhNote').innerHTML = added
+      ? '<strong>分岐側は何も起きません。</strong>実行時に空文字が返るだけで、気づけるのはQAか本番です。Record側はその場でコンパイルエラーになり、実装漏れの箇所を教えてくれます。'
+      : '追加ボタンを押すと差が出ます。';
+  }
+  btn.addEventListener('click', () => { added = !added; render(); });
+  render();
+})();
+
+/* ============================================================
+   Axis2 — safety level
+   ============================================================ */
+(function initLevel(){
+  const GUARDS = ['キーの網羅性','リテラル型の保持','値のtypo検出','ルール定義の一元化'];
+  const LV = {
+    '1': { cost:'cost: low', file:'button-styles.ts', on:[1,0,0,0],
+      code:'<span class="k">const</span> <span class="f">VARIANT</span>: <span class="t">Record</span>&lt;<span class="t">ButtonIntent</span>, <span class="t">string</span>&gt; = {\n' +
+           '  <span class="f">primary</span>: <span class="s">\'bg-blue-600 text-white\'</span>,\n' +
+           '  <span class="f">neutral</span>: <span class="s">\'bg-white text-neutral-900 border-neutral-300\'</span>,\n' +
+           '  <span class="f">subtle</span>: <span class="s">\'bg-transparent text-neutral-600\'</span>,\n' +
+           '  <span class="f">destructive</span>: <span class="s">\'bg-red-600 text-white\'</span>,\n};\n' +
+           '<span class="c">// VARIANT.primary の型は string に潰れる</span>' },
+    '2': { cost:'cost: low  ← 採用', file:'button-styles.ts', on:[1,1,0,0],
+      code:'<span class="k">const</span> <span class="f">VARIANT</span> = {\n' +
+           '  <span class="f">primary</span>: <span class="s">\'bg-blue-600 text-white\'</span>,\n' +
+           '  <span class="f">neutral</span>: <span class="s">\'bg-white text-neutral-900 border-neutral-300\'</span>,\n' +
+           '  <span class="f">subtle</span>: <span class="s">\'bg-transparent text-neutral-600\'</span>,\n' +
+           '  <span class="f">destructive</span>: <span class="s">\'bg-red-600 text-white\'</span>,\n' +
+           '} <span class="k">as const satisfies</span> <span class="t">Record</span>&lt;<span class="t">ButtonIntent</span>, <span class="t">string</span>&gt;;\n\n' +
+           '<span class="c">// readonly になり、値から型を導出できる</span>\n' +
+           '<span class="k">type</span> <span class="t">Intent</span> = <span class="k">keyof typeof</span> <span class="f">VARIANT</span>;' },
+    '3': { cost:'cost: mid', file:'button-tokens.ts', on:[1,1,1,0],
+      code:'<span class="k">const</span> <span class="f">BG</span> = { <span class="f">blue</span>: <span class="s">\'bg-blue-600\'</span>, <span class="f">white</span>: <span class="s">\'bg-white\'</span>, <span class="f">red</span>: <span class="s">\'bg-red-600\'</span> } <span class="k">as const</span>;\n' +
+           '<span class="k">const</span> <span class="f">FG</span> = { <span class="f">white</span>: <span class="s">\'text-white\'</span>, <span class="f">ink</span>: <span class="s">\'text-neutral-900\'</span> } <span class="k">as const</span>;\n\n' +
+           '<span class="k">type</span> <span class="t">Theme</span> = {\n' +
+           '  <span class="f">bg</span>: <span class="k">keyof typeof</span> <span class="f">BG</span>;\n' +
+           '  <span class="f">fg</span>: <span class="k">keyof typeof</span> <span class="f">FG</span>;\n' +
+           '  <span class="f">disablable</span>: <span class="t">boolean</span>;\n};\n\n' +
+           '<span class="k">const</span> <span class="f">VARIANT</span> = {\n' +
+           '  <span class="f">primary</span>:     { <span class="f">bg</span>: <span class="s">\'blue\'</span>,  <span class="f">fg</span>: <span class="s">\'white\'</span>, <span class="f">disablable</span>: <span class="n">true</span> },\n' +
+           '  <span class="f">neutral</span>:     { <span class="f">bg</span>: <span class="s">\'white\'</span>, <span class="f">fg</span>: <span class="s">\'ink\'</span>,   <span class="f">disablable</span>: <span class="n">false</span> },\n' +
+           '  <span class="f">destructive</span>: { <span class="f">bg</span>: <span class="s">\'red\'</span>,   <span class="f">fg</span>: <span class="s">\'white\'</span>, <span class="f">disablable</span>: <span class="n">true</span> },\n' +
+           '} <span class="k">as const satisfies</span> <span class="t">Record</span>&lt;<span class="t">ButtonIntent</span>, <span class="t">Theme</span>&gt;;\n' +
+           '<span class="c">// bg: \'blak\' のような typo がエラーになる</span>' },
+    '4': { cost:'cost: high  ← 見送り', file:'button-tokens.ts', on:[1,1,1,1],
+      code:'<span class="c">/** T のうち、値が V に合致するキーだけを抜き出す */</span>\n' +
+           '<span class="k">type</span> <span class="t">KeysWhere</span>&lt;<span class="t">T</span>, <span class="t">V</span>&gt; = {\n' +
+           '  [<span class="t">K</span> <span class="k">in keyof</span> <span class="t">T</span>]: <span class="t">T</span>[<span class="t">K</span>] <span class="k">extends</span> <span class="t">V</span> ? <span class="t">K</span> : <span class="t">never</span>;\n' +
+           '}[<span class="k">keyof</span> <span class="t">T</span>];\n\n' +
+           '<span class="k">type</span> <span class="t">Disablable</span> = <span class="t">KeysWhere</span>&lt;<span class="k">typeof</span> <span class="f">VARIANT</span>, { <span class="f">disablable</span>: <span class="n">true</span> }&gt;;\n' +
+           '<span class="c">// → \'primary\' | \'destructive\'</span>\n\n' +
+           '<span class="k">type</span> <span class="t">Appearance</span> =\n' +
+           '  | { <span class="f">intent</span>: <span class="t">Disablable</span>; <span class="f">disabled</span>?: <span class="t">boolean</span> }\n' +
+           '  | { <span class="f">intent</span>: <span class="t">Exclude</span>&lt;<span class="t">ButtonIntent</span>, <span class="t">Disablable</span>&gt;; <span class="f">disabled</span>?: <span class="t">never</span> };\n' +
+           '<span class="c">// ルールの定義箇所が1つになるが、読解コストが跳ね上がる</span>' }
+  };
+
+  function render(lv){
+    const d = LV[lv];
+    $('#lvCode').innerHTML = d.code;
+    $('#lvFile').textContent = d.file;
+    $('#lvCost').textContent = d.cost;
+    $('#lvCost').style.color = lv === '2' ? 'var(--green)' : (lv === '4' ? 'var(--red)' : 'var(--fg-mute)');
+    $('#lvGuards').innerHTML = GUARDS.map((g, i) =>
+      '<div class="verdictline verdictline--' + (d.on[i] ? 'ok' : 'ng') + '" style="margin-top:4px">' +
+      '<i>' + (d.on[i] ? '✓' : '·') + '</i><span style="color:' +
+      (d.on[i] ? 'var(--green)' : 'var(--fg-mute)') + '">' + g + '</span></div>').join('');
+    $$('#lvSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === lv)));
+  }
+  $('#lvSeg').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (b) render(b.dataset.v);
+  });
+  render('2');
+})();
+
+/* ============================================================
+   Axis3 — ACTIONS catalog
+   ============================================================ */
+const CATALOG = {
+  seeker: [
+    { key:'applyJob',   label:'応募する',     intent:'primary',     confirm:true,
+      why:'取り消せないが主要CTA。赤にはしない。' },
+    { key:'searchJobs', label:'この条件で検索', intent:'primary',    confirm:false,
+      why:'何度でも実行できる。確認は不要。' },
+    { key:'saveJob',    label:'気になる',      intent:'subtle',      confirm:false,
+      why:'軽い操作。トグルなので確認は邪魔になる。' },
+    { key:'withdrawApplication', label:'応募を取り消す', intent:'neutral', confirm:true,
+      why:'企業側に通知が残る可能性がある。赤にはせず確認だけ取る。' },
+    { key:'deleteAccount', label:'アカウントを削除', intent:'destructive', confirm:true,
+      why:'完全に不可逆。ここは赤が正しい。' }
+  ],
+  company: [
+    { key:'publishJob', label:'求人を公開する', intent:'primary',    confirm:true,
+      why:'公開は外部影響がある。確認を取る。' },
+    { key:'scoutCandidate', label:'スカウトを送る', intent:'primary', confirm:true,
+      why:'相手に届く操作。送信前に確認。' },
+    { key:'closeJobPosting', label:'掲載を終了する', intent:'neutral', confirm:true,
+      why:'再掲載は可能だが応募導線が消える。赤にはしない。' },
+    { key:'rejectApplicant', label:'選考を見送る', intent:'neutral', confirm:true,
+      why:'企業側の通常業務。赤は求職者への配慮を欠く。確認だけ取る。' },
+    { key:'deleteJobPosting', label:'求人を削除する', intent:'destructive', confirm:true,
+      why:'データが消える。応募履歴への影響も大きい。' }
+  ]
+};
+
+(function initCatalog(){
+  let aud = 'seeker', idx = 0;
+
+  function renderSeg(){
+    $('#actSeg').innerHTML = CATALOG[aud].map((a, i) =>
+      '<button data-i="' + i + '" aria-pressed="' + (i === idx) + '">' + a.key + '</button>').join('');
+  }
+  function render(){
+    const a = CATALOG[aud][idx];
+    const btn = $('#actBtn');
+    btn.className = 'pv pv--' + a.intent;
+    btn.textContent = a.label;
+
+    $('#actConfirm').innerHTML = a.confirm
+      ? '<div class="verdictline verdictline--ok" style="margin:0"><i>⚑</i><span>needsConfirm: true — 実行前に確認ダイアログを挟みます</span></div>'
+      : '<div class="verdictline" style="margin:0;color:var(--fg-mute)"><i>·</i><span>needsConfirm なし — 即時実行</span></div>';
+
+    $('#actFile').textContent = 'domain/actions/' + aud + '.ts';
+    $('#actCode').innerHTML =
+      '<span class="f">' + a.key + '</span>: {\n' +
+      '  <span class="f">label</span>: <span class="s">\'' + a.label + '\'</span>,\n' +
+      '  <span class="f">intent</span>: <span class="s">\'' + a.intent + '\'</span>,\n' +
+      (a.confirm ? '  <span class="f">needsConfirm</span>: <span class="n">true</span>,\n' : '') +
+      '}\n\n<span class="c">// ' + a.why + '</span>';
+
+    $$('#actSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.i === idx)));
+  }
+  $('#audSeg').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    aud = b.dataset.v; idx = 0;
+    $$('#audSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    renderSeg(); render();
+  });
+  $('#actSeg').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    idx = +b.dataset.i; render();
+  });
+  renderSeg(); render();
+})();
+
+/* ============================================================
+   Dictionary — judge
+   ============================================================ */
+const TREE = {
+  start: {
+    q: 'その文言は何に紐づいていますか?',
+    opts: [
+      { b:'ボタンやメニューのラベル', d:'ユーザーが実行する「操作」の名前', next:'r_actions' },
+      { b:'サービス固有の言葉',       d:'求人 / 応募 / 選考 / 職種 など', next:'q_terms' },
+      { b:'処理結果として出るもの',   d:'エラー、状態表示、バリデーション', next:'r_messages' },
+      { b:'どれでもない',             d:'見出し、説明文、その場限りのUIテキスト', next:'q_count' }
+    ]
+  },
+  q_terms: {
+    q: 'その言葉は、求職者側と企業側で呼び方が変わりますか?',
+    opts: [
+      { b:'変わる', d:'例: 応募する / エントリー', next:'r_terms_dual' },
+      { b:'変わらない', d:'例: 職種、雇用形態、勤務地', next:'r_terms' }
+    ]
+  },
+  q_count: {
+    q: '同じ文言はアプリ内に何箇所ありますか?',
+    opts: [
+      { b:'1〜2箇所', d:'まだ偶然の重複かもしれない', next:'r_inline' },
+      { b:'3箇所以上', d:'構造的な重複である可能性が高い', next:'q_count2' }
+    ]
+  },
+  q_count2: {
+    q: 'その文言が変わったとき、3箇所すべてが同時に変わるべきですか?',
+    opts: [
+      { b:'同時に変わるべき', d:'意味が同じなので統一が必要', next:'r_terms' },
+      { b:'別々でよい', d:'たまたま同じ文字列なだけ', next:'r_inline' }
+    ]
+  },
+  r_actions: {
+    cls:'res--actions', t:'domain/actions/*.ts',
+    why:'label / intent / needsConfirm は不可分にセットなので、操作単位で持ちます。',
+    code:'<span class="f">applyJob</span>: {\n  <span class="f">label</span>: <span class="s">\'応募する\'</span>,\n  <span class="f">intent</span>: <span class="s">\'primary\'</span>,\n  <span class="f">needsConfirm</span>: <span class="n">true</span>,\n}',
+    tip:'呼び出し側は action だけを指定します。intent も label も指定できないので、規約が破れません。'
+  },
+  r_terms: {
+    cls:'res--terms', t:'messages/terms.ts',
+    why:'プロダクト全体で表記を統一すべき語彙。運用中に変わる可能性があります。',
+    code:'<span class="k">export const</span> <span class="f">TERMS</span> = {\n  <span class="f">job</span>: <span class="s">\'求人\'</span>,\n  <span class="f">jobType</span>: <span class="s">\'職種\'</span>,\n  <span class="f">employmentType</span>: <span class="s">\'雇用形態\'</span>,\n} <span class="k">as const satisfies</span> <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">string</span>&gt;;',
+    tip:'「求人」→「案件」のような用語変更が1行で終わります。'
+  },
+  r_terms_dual: {
+    cls:'res--terms', t:'messages/terms.ts（audience 軸つき）',
+    why:'面ごとに呼び方が変わる語彙。フラットな辞書に入れると、文脈によって正しかったり間違ったりします。',
+    code:'<span class="k">export const</span> <span class="f">TERMS</span> = {\n  <span class="f">application</span>: {\n    <span class="f">seeker</span>: <span class="s">\'応募\'</span>,\n    <span class="f">company</span>: <span class="s">\'エントリー\'</span>,\n  },\n} <span class="k">as const satisfies</span> <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">Record</span>&lt;<span class="t">Audience</span>, <span class="t">string</span>&gt;&gt;;',
+    tip:'案A(audience軸)か案B(ファイル分割)かは、最初に決めて統一します。'
+  },
+  r_messages: {
+    cls:'res--messages', t:'domain の DU + messages/resolve.ts',
+    why:'ロジックから導出される文言。ドメインはDUを返し、文字列への変換は表示の直前で1回だけ行います。',
+    code:'<span class="c">// domain</span>\n{ <span class="f">type</span>: <span class="s">\'tooLong\'</span>, <span class="f">field</span>: <span class="s">\'selfPr\'</span>, <span class="f">max</span>: <span class="n">800</span> }\n\n<span class="c">// messages</span>\n<span class="f">tooLong</span>: (e) =&gt; <span class="s">`${labelOf(e.field)}は${e.max}文字以内で入力してください`</span>',
+    tip:'バリデーションのテストが文言に依存しなくなります。コピー修正でテストが落ちません。'
+  },
+  r_inline: {
+    cls:'res--inline', t:'直書きでよい',
+    why:'間接参照にはコストがあります。辞書に入れると、コードを読むたびに辞書を開くことになります。',
+    code:'&lt;<span class="t">h2</span>&gt;あなたにおすすめの求人&lt;/<span class="t">h2</span>&gt;\n\n<span class="c">// 3箇所目に出たら、そのとき再検討する</span>',
+    tip:'予測で抽象化しない。痛みが実際に出てから移すのが結果的に速い。'
+  }
+};
+
+(function initJudge(){
+  let crumbs = [];
+
+  function step(id){
+    const node = TREE[id];
+    if (node.opts) {
+      $('#jBody').style.display = '';
+      $('#jRes').style.display = 'none';
+      $('#jQ').textContent = node.q;
+      $('#jOpts').innerHTML = node.opts.map((o, i) =>
+        '<button class="judge__opt" data-i="' + i + '"><b>' + o.b + '</b>' + o.d + '</button>').join('');
+      $('#jOpts').onclick = e => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const o = node.opts[+b.dataset.i];
+        crumbs.push(o.b);
+        $('#jCrumbs').textContent = crumbs.join('  ›  ');
+        step(o.next);
+      };
+    } else {
+      $('#jBody').style.display = 'none';
+      const r = $('#jRes');
+      r.style.display = '';
+      r.className = 'judge__res ' + node.cls;
+      r.innerHTML =
+        '<h4>→ ' + node.t + '</h4>' +
+        '<p class="why">' + node.why + '</p>' +
+        '<div class="code" style="margin:0 0 12px"><div class="code__bar"><b>example</b><span>typescript</span></div><pre>' + node.code + '</pre></div>' +
+        '<p class="muted" style="margin:0">' + node.tip + '</p>';
+    }
+  }
+  $('#jReset').addEventListener('click', () => { crumbs = []; $('#jCrumbs').textContent = ''; step('start'); });
+  step('start');
+})();
+
+/* ============================================================
+   Roadmap — checklist
+   ============================================================ */
+const STEPS = [
+  { b:'intent 軸へ改名する', d:'solid / outline / danger → primary / neutral / subtle / destructive。見た目の記述と意味の記述が混ざった命名を解消します。', when:'今すぐ / 30分' },
+  { b:'Button を案1 + 段階2で実装', d:'DU + Record表 + as const satisfies。index.ts で公開範囲を絞り、内部への直接importを禁止します。', when:'今すぐ / 半日' },
+  { b:'ACTIONS カタログを開始', d:'needsConfirm 付き。確認が必要な操作(応募・公開・スカウト・削除)から入れます。全ボタンを一度に入れない。', when:'今すぐ / 1〜2時間' },
+  { b:'ValidationError の DU + resolve 関数', d:'フォームを書き始める前に決めておくと後戻りがありません。求人サイトで最も効く投資です。', when:'フォーム着手前' },
+  { b:'AsyncBoundary を導入', d:'検索結果・応募者一覧・スカウト・通知。一覧系が3画面目に達したタイミングで。', when:'一覧が3画面目' },
+  { b:'案5(シェル + ファサード表)へ移行', d:'intentごとのprops差分が2つ以上になったら。応募ボタンのloading/応募済みが起点になりやすい。', when:'差分が2つ以上' }
+];
+
+(function initSteps(){
+  const done = new Set();
+  const host = $('#steps');
+  host.innerHTML = STEPS.map((s, i) =>
+    '<li data-i="' + i + '"><span class="steps__box">✓</span><span>' +
+    '<b class="steps__b">' + (i + 1) + '. ' + s.b + '</b>' +
+    '<span class="steps__d">' + s.d + '</span>' +
+    '<span class="steps__when">' + s.when + '</span></span></li>').join('');
+
+  function sync(){
+    $('#pgTxt').textContent = done.size + ' / ' + STEPS.length;
+    $('#pgFill').style.width = (done.size / STEPS.length * 100) + '%';
+  }
+  host.addEventListener('click', e => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    const i = +li.dataset.i;
+    if (done.has(i)) { done.delete(i); li.classList.remove('done'); }
+    else { done.add(i); li.classList.add('done'); }
+    sync();
+  });
+  sync();
+})();
+
+/* boot */
+go((location.hash || '#overview').slice(1), false);
+</script>
+</body>
+</html>
