@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>問46 非同期の深掘り ― Promise / async / await / fetch</title>
+<style>
+  :root{
+    --bg:#1a1b26; --bg-panel:#24283b; --bg-elev:#292e42; --bg-code:#16161e;
+    --border:#3b4261; --border-soft:#2a2e42;
+    --fg:#c0caf5; --fg-dim:#a9b1d6; --muted:#565f89;
+    --blue:#7aa2f7; --cyan:#7dcfff; --green:#9ece6a; --purple:#bb9af7;
+    --red:#f7768e; --orange:#ff9e64; --yellow:#e0af68; --teal:#73daca;
+    --radius:14px; --maxw:920px;
+    --sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",
+           "Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,
+           "Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:var(--sans); font-size:16px; line-height:1.8;
+    -webkit-text-size-adjust:100%;
+    background-image:radial-gradient(1200px 600px at 100% -10%,rgba(122,162,247,.08),transparent 60%);
+  }
+  .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+
+  /* ---- header ---- */
+  .site-header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(26,27,38,.82); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border-soft);
+  }
+  .site-header .inner{
+    max-width:var(--maxw); margin:0 auto; padding:12px 16px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .logo-dot{width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,var(--blue),var(--purple));flex:0 0 auto}
+  .site-header b{font-weight:600;font-size:15px}
+  .site-header span{color:var(--muted);font-size:12.5px}
+
+  /* ---- hero ---- */
+  .hero{padding:34px 0 8px}
+  .hero .kicker{color:var(--purple);font-family:var(--mono);font-size:13px;
+    letter-spacing:.04em;margin:0 0 8px}
+  h1{font-size:26px;line-height:1.35;font-weight:700;margin:0 0 12px;
+    letter-spacing:.01em}
+  h1 .grad{background:linear-gradient(120deg,var(--blue),var(--teal),var(--purple));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--fg-dim);margin:0 0 6px}
+
+  /* ---- TOC ---- */
+  .toc{background:var(--bg-panel);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px;margin:22px 0 8px}
+  .toc h2{font-size:13px;color:var(--muted);margin:0 0 12px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.08em}
+  .toc ol{margin:0;padding:0;list-style:none;counter-reset:toc;
+    display:grid;grid-template-columns:1fr;gap:2px}
+  .toc li{counter-increment:toc}
+  .toc a{display:flex;gap:12px;align-items:baseline;padding:8px 10px;
+    border-radius:10px;color:var(--fg);text-decoration:none;
+    transition:background .15s}
+  .toc a:hover{background:var(--bg-elev)}
+  .toc a::before{content:counter(toc,decimal-leading-zero);
+    color:var(--blue);font-family:var(--mono);font-size:13px;flex:0 0 auto}
+
+  /* ---- sections ---- */
+  section{padding:30px 0;border-top:1px solid var(--border-soft)}
+  .sec-head{display:flex;align-items:center;gap:12px;margin:0 0 4px}
+  .sec-num{flex:0 0 auto;width:38px;height:38px;border-radius:11px;
+    display:grid;place-items:center;font-family:var(--mono);font-weight:700;
+    font-size:16px;color:var(--bg);
+    background:linear-gradient(135deg,var(--blue),var(--purple))}
+  h2{font-size:20px;font-weight:700;margin:0;line-height:1.35}
+  h3{font-size:16px;font-weight:600;margin:22px 0 6px;color:var(--cyan)}
+  p{margin:12px 0}
+  .lead{color:var(--fg-dim)}
+  strong{color:#fff;font-weight:600}
+  em{color:var(--yellow);font-style:normal}
+  .k{font-family:var(--mono);font-size:.9em;background:var(--bg-elev);
+    color:var(--teal);padding:1px 6px;border-radius:6px;
+    border:1px solid var(--border-soft)}
+
+  /* ---- code ---- */
+  pre.code{background:var(--bg-code);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;overflow-x:auto;margin:16px 0;
+    font-family:var(--mono);font-size:13.5px;line-height:1.75}
+  pre.code code{font-family:inherit;white-space:pre}
+  .tok-k{color:var(--purple)} .tok-f{color:var(--blue)}
+  .tok-s{color:var(--green)} .tok-n{color:var(--orange)}
+  .tok-c{color:var(--muted);font-style:italic} .tok-t{color:var(--cyan)}
+  .tok-p{color:var(--fg-dim)}
+
+  /* ---- callouts ---- */
+  .callout{border-radius:12px;padding:14px 16px;margin:16px 0;
+    border:1px solid var(--border);background:var(--bg-panel);
+    border-left-width:4px}
+  .callout .ttl{font-weight:600;margin:0 0 4px;display:flex;gap:8px;
+    align-items:center;font-size:14.5px}
+  .callout p{margin:6px 0 0}
+  .callout.key{border-left-color:var(--purple)}
+  .callout.key .ttl{color:var(--purple)}
+  .callout.tip{border-left-color:var(--green)}
+  .callout.tip .ttl{color:var(--green)}
+  .callout.warn{border-left-color:var(--orange)}
+  .callout.warn .ttl{color:var(--orange)}
+
+  /* ---- diagrams ---- */
+  figure.diagram{margin:20px 0;background:var(--bg-panel);
+    border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 14px 10px}
+  figure.diagram svg{display:block;width:100%;height:auto}
+  /* SVGのpresentation属性ではvar()が解決されないため、CSS側で上書きして変数フォントを適用 */
+  figure.diagram svg text[font-family="var(--sans)"]{font-family:var(--sans)}
+  figure.diagram svg text[font-family="var(--mono)"]{font-family:var(--mono)}
+  figure.diagram .scroll{overflow-x:auto}
+  figcaption{color:var(--muted);font-size:12.5px;text-align:center;
+    margin-top:10px;line-height:1.6}
+
+  /* ---- grids / cards ---- */
+  .grid{display:grid;grid-template-columns:1fr;gap:12px;margin:16px 0}
+  .card{background:var(--bg-panel);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px}
+  .card .h{font-weight:600;margin:0 0 6px;display:flex;gap:8px;align-items:center}
+  .card.blue{border-color:rgba(122,162,247,.4)}
+  .card.blue .h{color:var(--blue)}
+  .card.teal{border-color:rgba(115,218,202,.4)}
+  .card.teal .h{color:var(--teal)}
+  .badge{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;
+    background:var(--bg-elev);border:1px solid var(--border);color:var(--fg-dim)}
+
+  /* ---- map rows (toy -> real) ---- */
+  .maprow{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .maprow .toy,.maprow .real{flex:1;padding:9px 11px;border-radius:10px;
+    font-size:13px;line-height:1.5}
+  .maprow .toy{background:var(--bg-code);border:1px solid var(--border);
+    font-family:var(--mono);color:var(--fg-dim)}
+  .maprow .real{background:rgba(122,162,247,.12);
+    border:1px solid rgba(122,162,247,.35);color:var(--cyan)}
+  .maprow .ar{color:var(--muted);flex:0 0 auto;font-size:14px}
+
+  /* ---- timeline (blocking vs async) ---- */
+  .tl{margin:10px 0}
+  .tl .lab{font-size:13px;font-weight:600;margin:12px 0 6px;display:flex;
+    gap:8px;align-items:center}
+  .tl .bar{display:flex;height:34px;border-radius:9px;overflow:hidden;
+    border:1px solid var(--border)}
+  .tl .seg{display:grid;place-items:center;font-size:11.5px;color:var(--bg);
+    font-weight:600;padding:0 4px;text-align:center}
+
+  footer{border-top:1px solid var(--border-soft);padding:26px 0 44px;
+    color:var(--muted);font-size:13px}
+  footer .container{display:flex;flex-direction:column;gap:6px}
+
+  /* ---- responsive: tablet / desktop ---- */
+  @media (min-width:680px){
+    body{font-size:16.5px}
+    .container{padding:0 24px}
+    .hero{padding:46px 0 10px}
+    h1{font-size:34px}
+    h2{font-size:23px}
+    .toc ol{grid-template-columns:1fr 1fr;gap:2px 22px}
+    .grid.two{grid-template-columns:1fr 1fr}
+    .sec-num{width:42px;height:42px}
+  }
+  @media (min-width:960px){
+    :root{--maxw:960px}
+    h1{font-size:38px}
+    .grid.three{grid-template-columns:1fr 1fr 1fr}
+    figure.diagram{padding:22px 22px 12px}
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="logo-dot"></span>
+    <b>問46 — 非同期の深掘り</b>
+    <span>Promise / async / await / fetch</span>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="hero">
+    <p class="kicker">Lv6 &middot; 非同期と境界</p>
+    <h1>「あとで届く値」を<br><span class="grad">固まらずに扱う</span>ための道具</h1>
+    <p class="lead">問46で出てくる <span class="k">delay</span> / <span class="k">fetchTitle</span> を通して、
+      Promise・async・await・fetch が「結局なにをしていて、なにが嬉しいのか」を
+      1から10まで図解で追う資料です。チャットで話した内容を、あとから見返せる形にまとめています。</p>
+  </div>
+
+  <nav class="toc">
+    <h2>もくじ</h2>
+    <ol>
+      <li><a href="#s1">問46はなにをする課題か（全体像）</a></li>
+      <li><a href="#s2">Promiseとは ― 未来の値が入る「箱」</a></li>
+      <li><a href="#s3">なぜPromiseが必要か ― 固まらせない</a></li>
+      <li><a href="#s4">new Promise ― 箱を「作る側」に立つ</a></li>
+      <li><a href="#s5">resolveの正体 ― 箱を確定させるボタン</a></li>
+      <li><a href="#s6">await ― 箱を開けて待つ</a></li>
+      <li><a href="#s7">async ― 箱を自動で作ってくれる</a></li>
+      <li><a href="#s8">fetchとは ＆ delayとの関係</a></li>
+      <li><a href="#s9">お題2 fetchTitle の目的</a></li>
+      <li><a href="#s10">全体像 ― RemoteDataと組んで実画面に</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============ 1 ============ -->
+  <section id="s1">
+    <div class="sec-head"><span class="sec-num">1</span>
+      <h2>問46はなにをする課題か（全体像）</h2></div>
+    <p>ひとことで言うと、問46は <strong>「本番のデータ取得」のごっこ遊び</strong> です。
+      本番には存在する「サーバー」と「通信にかかる時間」を、手元で<em>偽物</em>として用意し、
+      あらゆるデータ取得に共通する<strong>“形”だけ</strong>を練習します。</p>
+    <p>課題は2つ。<span class="k">delay</span>（時間がかかる処理の偽物を、自分の手で作る）と、
+      <span class="k">fetchTitle</span>（その偽物を使って「idを渡すとタイトルが返ってくる」偽のAPIを組む）。
+      下の図が問46の全景です。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 486" role="img" aria-label="fetchTitleの全体パイプライン">
+        <defs>
+          <marker id="ah1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#565f89"/>
+          </marker>
+        </defs>
+        <!-- stage 1 -->
+        <rect x="80" y="12" width="200" height="52" rx="12" fill="#292e42"
+          stroke="#7aa2f7" stroke-width="1.5"/>
+        <text x="180" y="34" text-anchor="middle" fill="#c0caf5"
+          font-family="var(--sans)" font-size="15" font-weight="600">呼ぶ側（画面）</text>
+        <text x="180" y="52" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="12">ユーザーが本を選ぶ</text>
+        <!-- arrow 1 -->
+        <path d="M180 66 L180 96" stroke="#565f89" stroke-width="1.5"
+          marker-end="url(#ah1)"/>
+        <text x="188" y="86" fill="#7dcfff" font-family="var(--mono)"
+          font-size="12.5">fetchTitle(1)</text>
+
+        <!-- stage 2: fetchTitle big box -->
+        <rect x="24" y="104" width="312" height="196" rx="14" fill="#24283b"
+          stroke="#3b4261" stroke-width="1.5"/>
+        <text x="40" y="128" fill="#bb9af7" font-family="var(--mono)"
+          font-size="13.5" font-weight="700">fetchTitle(id)</text>
+        <text x="40" y="146" fill="#565f89" font-family="var(--sans)"
+          font-size="12">＝ 偽のAPIコール（この中が処理の本体）</text>
+
+        <!-- sub: delay -->
+        <rect x="40" y="158" width="280" height="54" rx="10" fill="#16161e"
+          stroke="#e0af68" stroke-width="1.3"/>
+        <text x="54" y="180" fill="#e0af68" font-family="var(--mono)"
+          font-size="13">await delay(100)</text>
+        <text x="54" y="200" fill="#a9b1d6" font-family="var(--sans)"
+          font-size="12">100ms待つ ＝「通信のふり」</text>
+
+        <!-- sub: TITLES -->
+        <rect x="40" y="222" width="280" height="60" rx="10" fill="#16161e"
+          stroke="#73daca" stroke-width="1.3"/>
+        <text x="54" y="244" fill="#73daca" font-family="var(--mono)"
+          font-size="13">TITLES[id]</text>
+        <text x="54" y="264" fill="#a9b1d6" font-family="var(--sans)"
+          font-size="12">偽のデータベースから引く</text>
+
+        <!-- arrow 2 -->
+        <path d="M180 300 L180 330" stroke="#565f89" stroke-width="1.5"
+          marker-end="url(#ah1)"/>
+        <text x="188" y="320" fill="#565f89" font-family="var(--sans)"
+          font-size="12">結果が返る</text>
+
+        <!-- stage 3: results -->
+        <rect x="30" y="338" width="146" height="60" rx="12" fill="#292e42"
+          stroke="#9ece6a" stroke-width="1.5"/>
+        <text x="103" y="362" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--sans)" font-size="14" font-weight="600">見つかった</text>
+        <text x="103" y="382" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">タイトルを表示</text>
+
+        <rect x="184" y="338" width="146" height="60" rx="12" fill="#292e42"
+          stroke="#f7768e" stroke-width="1.5"/>
+        <text x="257" y="362" text-anchor="middle" fill="#f7768e"
+          font-family="var(--sans)" font-size="14" font-weight="600">無かった</text>
+        <text x="257" y="382" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">どうするか自分で決める</text>
+
+        <text x="180" y="432" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="12.5">delay と TITLES はどちらも</text>
+        <text x="180" y="452" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="12.5">「本番には無いもの」を演じる偽物</text>
+      </svg>
+      <figcaption>図1: fetchTitle の全景。中身は「待つ → 引く → 返す（or 見つからない）」の3ステップ。</figcaption>
+    </figure>
+
+    <div class="callout key">
+      <p class="ttl">この資料のゴール</p>
+      <p>「道具の動き」だけでなく <strong>「なぜそれが要るのか／なにが嬉しいのか」</strong> まで腑に落とすこと。
+        次の章から、箱（Promise）の正体 → 作り方 → 使い方 → 本番（fetch）との繋がり、の順で積み上げます。</p>
+    </div>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section id="s2">
+    <div class="sec-head"><span class="sec-num">2</span>
+      <h2>Promiseとは ― 未来の値が入る「箱」</h2></div>
+    <p><strong>Promiseは「いつか値が入る箱」</strong>です。フードコートの<em>呼び出しベル</em>を思い浮かべてください。
+      ラーメンを注文しても、すぐには出てこない。店員が渡してくるのは<strong>ベル</strong>です。
+      このベルはラーメンそのものではなく、「そのうちラーメンが来る」という引換券。これがPromiseです。</p>
+
+    <p>だから <span class="k">Promise&lt;string&gt;</span> は <span class="k">string</span> ではありません。
+      「そのうち string が入るベル」です。ベルを直接 <span class="k">console.log</span> すると
+      <span class="k">[object Promise]</span> と出るのは、「ラーメンではなくベルを表示してしまった」状態。</p>
+
+    <p>ベルには<strong>3つの状態</strong>があります。この3状態は、問45で作った
+      <span class="k">RemoteData</span> とほぼ同じ形です。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 210" role="img" aria-label="Promiseの3状態">
+        <!-- pending -->
+        <rect x="14" y="30" width="104" height="130" rx="14" fill="#24283b"
+          stroke="#e0af68" stroke-width="1.5"/>
+        <circle cx="66" cy="66" r="15" fill="none" stroke="#e0af68" stroke-width="2.4"
+          stroke-dasharray="4 4"/>
+        <text x="66" y="18" text-anchor="middle" fill="#e0af68"
+          font-family="var(--mono)" font-size="12.5">pending</text>
+        <text x="66" y="104" text-anchor="middle" fill="#c0caf5"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">待機中</text>
+        <text x="66" y="124" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">まだ鳴って</text>
+        <text x="66" y="139" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">いない</text>
+        <!-- fulfilled -->
+        <rect x="128" y="30" width="104" height="130" rx="14" fill="#24283b"
+          stroke="#9ece6a" stroke-width="1.5"/>
+        <path d="M172 66l7 7 12-14" fill="none" stroke="#9ece6a" stroke-width="2.8"
+          stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="180" cy="66" r="16" fill="none" stroke="#9ece6a" stroke-width="2.4"/>
+        <text x="180" y="18" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="12.5">fulfilled</text>
+        <text x="180" y="104" text-anchor="middle" fill="#c0caf5"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">成功で確定</text>
+        <text x="180" y="124" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">鳴った＝</text>
+        <text x="180" y="139" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">中身あり</text>
+        <!-- rejected -->
+        <rect x="242" y="30" width="104" height="130" rx="14" fill="#24283b"
+          stroke="#f7768e" stroke-width="1.5"/>
+        <path d="M287 60l14 14M301 60l-14 14" stroke="#f7768e" stroke-width="2.8"
+          stroke-linecap="round"/>
+        <circle cx="294" cy="67" r="16" fill="none" stroke="#f7768e" stroke-width="2.4"/>
+        <text x="294" y="18" text-anchor="middle" fill="#f7768e"
+          font-family="var(--mono)" font-size="12.5">rejected</text>
+        <text x="294" y="104" text-anchor="middle" fill="#c0caf5"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">失敗で確定</text>
+        <text x="294" y="124" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">エラーを</text>
+        <text x="294" y="139" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">持つ</text>
+        <text x="180" y="184" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="12">pending から一度確定したら、二度と変わらない（イミュータブル）</text>
+      </svg>
+      <figcaption>図2: Promiseの3状態。問45 RemoteData の loading / success / failure と同じ発想。</figcaption>
+    </figure>
+
+    <div class="callout tip">
+      <p class="ttl">覚えるのはこれだけ</p>
+      <p>Promise＝<strong>「あとで中身が入るベル」</strong>。今はまだ中身が無いから、ベル（箱）を先に受け取っておく。</p>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section id="s3">
+    <div class="sec-head"><span class="sec-num">3</span>
+      <h2>なぜPromiseが必要か ― 固まらせない</h2></div>
+    <p>JavaScriptは<strong>一度に1つのことしかできません</strong>（シングルスレッド）。
+      もし「サーバーからデータが来るまで待つ」を素直に書いて500ミリ秒止まると、その間
+      <strong>ページ全体が凍りつきます</strong> ― スクロールもクリックも、ローディングのくるくるすら止まる。</p>
+    <p>だから「ただ待つ」は選べない。かといって「まだ無い値」を今すぐ返すこともできない。
+      この板挟みの答えがPromiseです。<strong>値そのものは今渡せないけれど、
+      「あとで届くよ」というベルを今渡す</strong>。あなたはベルを持って別の作業に移れる＝ページは固まりません。</p>
+
+    <figure class="diagram">
+      <div class="tl">
+        <div class="lab" style="color:var(--red)">
+          <span>×</span> ただ待つ（同期・ブロッキング）</div>
+        <div class="bar">
+          <div class="seg" style="flex:2;background:#9ece6a">動作OK</div>
+          <div class="seg" style="flex:5;background:#f7768e">画面が凍る（500ms 操作不能）</div>
+          <div class="seg" style="flex:2;background:#9ece6a">再開</div>
+        </div>
+        <div class="lab" style="color:var(--green);margin-top:16px">
+          <span>○</span> Promiseで待つ（非同期・ノンブロッキング）</div>
+        <div class="bar">
+          <div class="seg" style="flex:2;background:#9ece6a">動作OK</div>
+          <div class="seg" style="flex:5;background:#7aa2f7">待ってる間も操作できる（くるくる回る）</div>
+          <div class="seg" style="flex:2;background:#9ece6a">届いたら続き</div>
+        </div>
+      </div>
+      <figcaption>図3: 同じ「500ms待つ」でも、ブロッキングは画面全体を止める。Promiseは止めない。</figcaption>
+    </figure>
+
+    <p>しかも<strong>選択の余地もありません</strong>。いまのWeb開発で「時間がかかること」は、
+      すべてPromiseで返ってきます。</p>
+    <div class="grid three">
+      <div class="card blue"><p class="h">サーバー通信</p>
+        <p style="margin:0;font-size:13.5px;color:var(--fg-dim)"><span class="k">fetch()</span> でデータを取る</p></div>
+      <div class="card blue"><p class="h">ファイル読込</p>
+        <p style="margin:0;font-size:13.5px;color:var(--fg-dim)"><span class="k">FileReader</span> で読む</p></div>
+      <div class="card blue"><p class="h">一定時間待つ</p>
+        <p style="margin:0;font-size:13.5px;color:var(--fg-dim)">今回の <span class="k">delay</span></p></div>
+    </div>
+    <div class="callout warn">
+      <p class="ttl">つまり</p>
+      <p>Promiseは「知っておくと便利」ではなく、<strong>これ無しでは何もデータを取ってこれない土台</strong>です。</p>
+    </div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section id="s4">
+    <div class="sec-head"><span class="sec-num">4</span>
+      <h2>new Promise ― 箱を「作る側」に立つ</h2></div>
+    <p>普段はベル（Promise）を <span class="k">fetch</span> が作ってくれます。お題1は逆に、
+      <strong>一度だけベルを自分の手で作って、仕組みを覗く</strong>練習です。それが <span class="k">delay</span>。</p>
+
+    <pre class="code"><code><span class="tok-k">const</span> <span class="tok-f">delay</span> <span class="tok-p">=</span> (<span class="tok-p">ms</span>: <span class="tok-t">number</span>): <span class="tok-t">Promise</span>&lt;<span class="tok-t">void</span>&gt; <span class="tok-p">=&gt;</span>
+  <span class="tok-k">new</span> <span class="tok-t">Promise</span>((<span class="tok-p">resolve</span>) <span class="tok-p">=&gt;</span> {
+    <span class="tok-f">setTimeout</span>(<span class="tok-p">resolve</span>, <span class="tok-p">ms</span>)
+  })</code></pre>
+
+    <p>読み解くコツは<strong>「箱の内と外」</strong>です。呼び出し元に手渡すのはベル（Promise）なので、
+      <strong>一番外側は必ず <span class="k">new Promise</span></strong>。<span class="k">setTimeout</span> はその内側に住む
+      「目覚まし時計」にすぎません。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 288" role="img" aria-label="delayの構造（入れ子）">
+        <text x="20" y="24" fill="#bb9af7" font-family="var(--sans)" font-size="12.5"
+          font-weight="600">① 一番外側 ＝ 返すベル（Promise）</text>
+        <!-- outer -->
+        <rect x="14" y="34" width="332" height="238" rx="16" fill="#24283b"
+          stroke="#bb9af7" stroke-width="1.6"/>
+        <text x="30" y="60" fill="#bb9af7" font-family="var(--mono)"
+          font-size="13.5">new Promise( ... )</text>
+        <!-- executor -->
+        <rect x="34" y="76" width="292" height="180" rx="12" fill="#1a1b26"
+          stroke="#7aa2f7" stroke-width="1.5"/>
+        <text x="48" y="100" fill="#7aa2f7" font-family="var(--mono)"
+          font-size="13">(resolve) =&gt; { ... }</text>
+        <text x="48" y="120" fill="#565f89" font-family="var(--sans)"
+          font-size="12">② resolve を受け取る（JSがくれる）</text>
+        <!-- setTimeout -->
+        <rect x="54" y="134" width="252" height="104" rx="10" fill="#16161e"
+          stroke="#e0af68" stroke-width="1.4"/>
+        <text x="68" y="160" fill="#e0af68" font-family="var(--mono)"
+          font-size="13">setTimeout(resolve, ms)</text>
+        <text x="68" y="182" fill="#a9b1d6" font-family="var(--sans)"
+          font-size="12">③ 「ms後に resolve を押して」と予約</text>
+        <text x="68" y="204" fill="#565f89" font-family="var(--sans)"
+          font-size="12">setTimeout は内側の住人。</text>
+        <text x="68" y="222" fill="#565f89" font-family="var(--sans)"
+          font-size="12">あなたは押さない＝“渡すだけ”。</text>
+      </svg>
+      <figcaption>図4: delayの入れ子。外＝Promise（返す）／中＝setTimeout（ms後にresolveを押す）。</figcaption>
+    </figure>
+
+    <div class="callout warn">
+      <p class="ttl">よくある逆転ミス</p>
+      <p><span class="k">setTimeout(new Promise(), ms)</span> と書くと内と外が反対。
+        <span class="k">setTimeout</span> が返すのはタイマーID（数値）で、Promiseではないので型が合いません。
+        <strong>「returnする一番外側の型はPromiseか？」</strong>と自問すると気づけます。</p>
+    </div>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section id="s5">
+    <div class="sec-head"><span class="sec-num">5</span>
+      <h2>resolveの正体 ― 箱を確定させるボタン</h2></div>
+    <p><span class="k">resolve</span> は、<strong>Promiseが「はい、これ使って」と渡してくる関数</strong>です。
+      あなたが作るのではなく<em>受け取る</em>もの。これがLv4の高階関数と同じ構造 ―
+      <span class="k">.map(x =&gt; ...)</span> で配列があなたの関数に <span class="k">x</span> を渡したのと同じで、
+      今回は <span class="k">new Promise</span> があなたの関数に <span class="k">resolve</span> を渡します。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 250" role="img" aria-label="resolveの受け渡しと押下">
+        <defs>
+          <marker id="ah5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#7dcfff"/>
+          </marker>
+          <marker id="ah5b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#9ece6a"/>
+          </marker>
+        </defs>
+        <text x="14" y="18" fill="#c0caf5" font-family="var(--sans)" font-size="12.5"
+          font-weight="600">まず「受け取る」：</text>
+        <rect x="14" y="28" width="132" height="52" rx="11" fill="#24283b"
+          stroke="#3b4261" stroke-width="1.4"/>
+        <text x="80" y="50" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">Promiseの仕組み</text>
+        <text x="80" y="68" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">(JSが用意)</text>
+        <path d="M148 54 L206 54" stroke="#7dcfff" stroke-width="1.6"
+          marker-end="url(#ah5)"/>
+        <text x="177" y="46" text-anchor="middle" fill="#7dcfff"
+          font-family="var(--mono)" font-size="11.5">resolve</text>
+        <rect x="210" y="28" width="136" height="52" rx="11" fill="#24283b"
+          stroke="#7aa2f7" stroke-width="1.5"/>
+        <text x="278" y="50" text-anchor="middle" fill="#7aa2f7"
+          font-family="var(--mono)" font-size="12">(resolve)=&gt;{}</text>
+        <text x="278" y="68" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">あなたの関数</text>
+
+        <line x1="14" y1="104" x2="346" y2="104" stroke="#2a2e42" stroke-width="1"/>
+
+        <text x="14" y="128" fill="#c0caf5" font-family="var(--sans)" font-size="12.5"
+          font-weight="600">押すと「確定」：</text>
+        <rect x="20" y="142" width="120" height="72" rx="12" fill="#24283b"
+          stroke="#e0af68" stroke-width="1.5"/>
+        <text x="80" y="172" text-anchor="middle" fill="#e0af68"
+          font-family="var(--mono)" font-size="12.5">pending</text>
+        <text x="80" y="194" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11.5">まだ鳴らない</text>
+        <path d="M144 178 L206 178" stroke="#9ece6a" stroke-width="1.6"
+          marker-end="url(#ah5b)"/>
+        <text x="175" y="170" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="11">resolve()</text>
+        <rect x="210" y="142" width="130" height="72" rx="12" fill="#24283b"
+          stroke="#9ece6a" stroke-width="1.6"/>
+        <text x="275" y="172" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="12.5">fulfilled</text>
+        <text x="275" y="194" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11.5">鳴った＝確定</text>
+      </svg>
+      <figcaption>図5: resolveは「受け取るボタン」。押した瞬間 pending→fulfilled に確定する。</figcaption>
+    </figure>
+
+    <p><span class="k">resolve(値)</span> と値を渡すと、その値が箱の中身になり、
+      <span class="k">await</span> した側がその値を受け取ります。<span class="k">delay</span> は中身が無い
+      <span class="k">void</span> なので <span class="k">resolve()</span>（合図だけ）。</p>
+
+    <div class="callout key">
+      <p class="ttl">なぜ resolve() ではなく resolve を渡すのか</p>
+      <p><span class="k">setTimeout(resolve, ms)</span> は「関数<strong>そのもの</strong>を渡す」。押すのはsetTimeout（ms後）。
+        <span class="k">resolve()</span> と書くと<strong>今すぐ自分で押して</strong>しまい、待つ意味が消えます。
+        問36の eta変換（<span class="k">x =&gt; f(x)</span> と <span class="k">f</span> の違い）と同じ論点です。</p>
+    </div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section id="s6">
+    <div class="sec-head"><span class="sec-num">6</span>
+      <h2>await ― 箱を開けて待つ</h2></div>
+    <p><span class="k">await ベル</span> は「このベルが<strong>鳴るまで待つ</strong>→ 鳴ったら<strong>中身をちょうだい</strong>」。
+      待っている間もページは固まりません（章3）。</p>
+
+    <pre class="code"><code><span class="tok-k">const</span> <span class="tok-p">title</span> <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-f">fetchTitle</span>(<span class="tok-n">1</span>)   <span class="tok-c">// 届くまで待って、届いたら title に入る</span>
+<span class="tok-f">console</span>.<span class="tok-f">log</span>(<span class="tok-p">title</span>)                  <span class="tok-c">// この行は "その後" に動く</span></code></pre>
+
+    <figure class="diagram">
+      <div class="tl">
+        <div class="lab" style="color:var(--fg-dim)">あなたのコードの流れ</div>
+        <div class="bar" style="height:38px">
+          <div class="seg" style="flex:3;background:#7aa2f7">ここまで実行</div>
+          <div class="seg" style="flex:4;background:#e0af68;color:#1a1b26">await で一時停止（待機）</div>
+          <div class="seg" style="flex:3;background:#9ece6a">鳴った→続き再開</div>
+        </div>
+      </div>
+      <figcaption>図6: awaitは「ベルが鳴るまで自分の続きを止め、鳴ったら再開する」目印。</figcaption>
+    </figure>
+
+    <div class="callout warn">
+      <p class="ttl">await 忘れ＝実務バグ第1位</p>
+      <p>忘れると「ベルそのもの」が流れて <span class="k">[object Promise]</span> に。
+        箱は常に truthy なので <span class="k">if</span> も素通りしがち。<strong>「時間がかかる関数を呼んだら await」</strong>を癖に。</p>
+    </div>
+  </section>
+
+  <!-- ============ 7 ============ -->
+  <section id="s7">
+    <div class="sec-head"><span class="sec-num">7</span>
+      <h2>async ― 箱を自動で作ってくれる</h2></div>
+    <p>関数に <span class="k">async</span> を付けると、その関数は<strong>返り値を自動でPromiseに包みます</strong>。
+      だからお題2では自分で <span class="k">new Promise</span> を書きません。中では
+      <strong>「待ちたいものを await して、最後に値を return するだけ」</strong>。</p>
+
+    <pre class="code"><code><span class="tok-k">const</span> <span class="tok-f">fetchTitle</span> <span class="tok-p">=</span> <span class="tok-k">async</span> (<span class="tok-p">id</span>: <span class="tok-t">number</span>): <span class="tok-t">Promise</span>&lt;<span class="tok-t">string</span>&gt; <span class="tok-p">=&gt;</span> {
+  <span class="tok-k">await</span> <span class="tok-f">delay</span>(<span class="tok-n">100</span>)
+  <span class="tok-c">// ... TITLES[id] を引く ...</span>
+  <span class="tok-k">return</span> <span class="tok-p">title</span>   <span class="tok-c">// ← 裏で resolve(title) しているのと同じ</span>
+}</code></pre>
+
+    <div class="grid two">
+      <div class="card blue">
+        <p class="h">お題1: delay</p>
+        <p style="margin:0;font-size:13.5px;color:var(--fg-dim)">
+          あなたが<strong>ベル職人</strong>。<span class="k">new Promise</span> で手作り。
+          resolveを自分で仕掛ける。</p>
+      </div>
+      <div class="card teal">
+        <p class="h">お題2: fetchTitle</p>
+        <p style="margin:0;font-size:13.5px;color:var(--fg-dim)">
+          <span class="k">async</span> がベルを<strong>自動生成</strong>。
+          <span class="k">return 値</span> がresolveの代わり。</p>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <p class="ttl">async と new Promise の関係</p>
+      <p>箱の作り方は2通りあって、<strong>どちらか一方を選ぶ</strong>。
+        <span class="k">async</span> 関数の中で <span class="k">new Promise</span> を書くのは二重で不要。
+        <span class="k">return x</span> が、章5の <span class="k">resolve(x)</span> を自動で押しているのと同じです。</p>
+    </div>
+  </section>
+
+  <!-- ============ 8 ============ -->
+  <section id="s8">
+    <div class="sec-head"><span class="sec-num">8</span>
+      <h2>fetchとは ＆ delayとの関係</h2></div>
+    <p><span class="k">fetch</span> はブラウザに最初から入っている
+      <strong>「サーバーにデータを取りに行く」関数</strong>です。URLを渡すと相手に問い合わせ、返事を持って帰る。</p>
+
+    <pre class="code"><code><span class="tok-k">const</span> <span class="tok-p">res</span> <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-f">fetch</span>(<span class="tok-s">'https://example.com/api/titles/1'</span>)
+<span class="tok-k">const</span> <span class="tok-p">data</span> <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-p">res</span>.<span class="tok-f">json</span>()   <span class="tok-c">// 返事の本文を取り出す（これも待つ）</span></code></pre>
+
+    <p>問い合わせは<strong>時間がかかる</strong>ので、<span class="k">fetch</span> はデータではなく
+      「あとで返事が入るベル」＝<strong>Promise</strong>を即座に返します。ここが <span class="k">delay</span> と全く同じ構造。
+      両方Promiseで、違うのは<strong>「いつベルが鳴るか（トリガー）」だけ</strong>です。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 250" role="img" aria-label="fetchとdelayの対比">
+        <defs>
+          <marker id="ah8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#565f89"/>
+          </marker>
+        </defs>
+        <!-- row 1: delay -->
+        <rect x="12" y="30" width="128" height="54" rx="11" fill="#16161e"
+          stroke="#e0af68" stroke-width="1.5"/>
+        <text x="76" y="54" text-anchor="middle" fill="#e0af68"
+          font-family="var(--mono)" font-size="13">delay(100)</text>
+        <text x="76" y="72" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">トリガー: 時間経過</text>
+        <path d="M142 57 L232 57" stroke="#565f89" stroke-width="1.5"
+          marker-end="url(#ah8)"/>
+        <text x="187" y="49" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="11">100ms経ったら</text>
+        <rect x="236" y="30" width="112" height="54" rx="11" fill="#24283b"
+          stroke="#9ece6a" stroke-width="1.5"/>
+        <text x="292" y="54" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="12.5">Promise</text>
+        <text x="292" y="72" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">が鳴る</text>
+
+        <text x="180" y="128" text-anchor="middle" fill="#7dcfff"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">どちらも同じ「ベル」。違うのは“いつ鳴るか”だけ</text>
+
+        <!-- row 2: fetch -->
+        <rect x="12" y="160" width="128" height="54" rx="11" fill="#16161e"
+          stroke="#7aa2f7" stroke-width="1.5"/>
+        <text x="76" y="184" text-anchor="middle" fill="#7aa2f7"
+          font-family="var(--mono)" font-size="13">fetch(url)</text>
+        <text x="76" y="202" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">トリガー: 通信の完了</text>
+        <path d="M142 187 L232 187" stroke="#565f89" stroke-width="1.5"
+          marker-end="url(#ah8)"/>
+        <text x="187" y="179" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="11">返事が届いたら</text>
+        <rect x="236" y="160" width="112" height="54" rx="11" fill="#24283b"
+          stroke="#9ece6a" stroke-width="1.5"/>
+        <text x="292" y="184" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="12.5">Promise</text>
+        <text x="292" y="202" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="11">が鳴る</text>
+      </svg>
+      <figcaption>図8: fetchとdelayは同種のPromise。トリガーが「通信の完了」か「時間経過」かの違いだけ。</figcaption>
+    </figure>
+
+    <pre class="code"><code><span class="tok-k">await</span> <span class="tok-f">delay</span>(<span class="tok-n">100</span>)              <span class="tok-c">// 100ms待つ</span>
+<span class="tok-k">const</span> <span class="tok-p">res</span> <span class="tok-p">=</span> <span class="tok-k">await</span> <span class="tok-f">fetch</span>(<span class="tok-p">url</span>)  <span class="tok-c">// 返事が来るまで待つ ← 形がそっくり</span></code></pre>
+
+    <div class="callout key">
+      <p class="ttl">だから問46でdelayを使う</p>
+      <p>練習にはサーバーが無いので、fetchの「時間がかかる」性質だけを <span class="k">delay(100)</span> で再現しています。
+        <span class="k">fetchTitle</span> の中の <span class="k">await delay(100)</span> は、本番の
+        <span class="k">await fetch(...)</span> の<strong>予行演習</strong>。同じ扱い方なので、そのまま本物に移せます。</p>
+    </div>
+  </section>
+
+  <!-- ============ 9 ============ -->
+  <section id="s9">
+    <div class="sec-head"><span class="sec-num">9</span>
+      <h2>お題2 fetchTitle の目的</h2></div>
+    <p><span class="k">fetchTitle</span> は、将来書く <span class="k">fetch(...)</span> の<strong>替え玉</strong>です。
+      通信の面倒（URL・設定・エラー）を抜きに、<strong>「待つ→受け取る→返す」という“形”だけ</strong>を裸で練習できます。</p>
+
+    <h3>やりたいこと（道具を抜いた日本語）</h3>
+    <div class="grid">
+      <div class="card"><p style="margin:0"><span class="badge">1</span>&nbsp; <span class="k">id</span> を受け取る</p></div>
+      <div class="card"><p style="margin:0"><span class="badge">2</span>&nbsp; <span class="k">delay(100)</span> を <span class="k">await</span> で待つ（通信のふり）</p></div>
+      <div class="card"><p style="margin:0"><span class="badge">3</span>&nbsp; <span class="k">TITLES[id]</span> を引く</p></div>
+      <div class="card"><p style="margin:0"><span class="badge">4</span>&nbsp; <strong style="color:var(--green)">あれば</strong>返す／<strong style="color:var(--red)">無ければ</strong>「見つからない」をどう表すか自分で決める</p></div>
+    </div>
+
+    <h3>手元の“偽物”は、本番のなにを演じているか</h3>
+    <div class="maprow"><div class="toy">delay(100)</div><div class="ar">→</div><div class="real">通信のタイムラグ（サーバーが考える時間）</div></div>
+    <div class="maprow"><div class="toy">TITLES = {…}</div><div class="ar">→</div><div class="real">バックエンドのDB</div></div>
+    <div class="maprow"><div class="toy">fetchTitle(id)</div><div class="ar">→</div><div class="real">fetch('/api/titles/' + id)</div></div>
+    <div class="maprow"><div class="toy">見つからない時の設計</div><div class="ar">→</div><div class="real">404・通信エラーの処理（→ 問49 Result型）</div></div>
+
+    <div class="callout warn">
+      <p class="ttl">ここが答え合わせの主役</p>
+      <p>「見つからない <span class="k">id</span> をどう扱うか（throw / 別の型 / その他）」＋<strong>その理由</strong>。
+        正解は1つではありません。<span class="k">noUncheckedIndexedAccess</span> により
+        <span class="k">TITLES[id]</span> は <span class="k">string | undefined</span> ―― この <span class="k">undefined</span> の扱いが設計判断です。</p>
+    </div>
+  </section>
+
+  <!-- ============ 10 ============ -->
+  <section id="s10">
+    <div class="sec-head"><span class="sec-num">10</span>
+      <h2>全体像 ― RemoteDataと組んで実画面に</h2></div>
+    <p>「なにが嬉しいのか」の最終回答がこれです。<span class="k">fetchTitle</span> が書ければ
+      <strong>あらゆるデータ取得が書ける</strong>ようになり、問45の <span class="k">RemoteData</span> と組み合わせると、
+      そのまま<strong>「読み込み中 → 表示 or エラー」の実画面1つ</strong>になります。</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 360 366" role="img" aria-label="RemoteDataのライフサイクル">
+        <defs>
+          <marker id="ah10" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7"
+            markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#565f89"/>
+          </marker>
+        </defs>
+        <!-- idle -->
+        <rect x="106" y="12" width="148" height="50" rx="12" fill="#24283b"
+          stroke="#565f89" stroke-width="1.5"/>
+        <text x="180" y="34" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--mono)" font-size="12.5">idle</text>
+        <text x="180" y="52" text-anchor="middle" fill="#565f89"
+          font-family="var(--sans)" font-size="12">id を選ぶ</text>
+        <path d="M180 62 L180 92" stroke="#565f89" stroke-width="1.5"
+          marker-end="url(#ah10)"/>
+        <text x="188" y="82" fill="#7dcfff" font-family="var(--mono)"
+          font-size="11.5">await fetchTitle(id)</text>
+        <!-- loading -->
+        <rect x="86" y="98" width="188" height="54" rx="12" fill="#24283b"
+          stroke="#e0af68" stroke-width="1.6"/>
+        <text x="180" y="122" text-anchor="middle" fill="#e0af68"
+          font-family="var(--mono)" font-size="12.5">loading</text>
+        <text x="180" y="140" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">読み込み中（くるくる表示）</text>
+        <!-- split -->
+        <path d="M150 152 L150 176 L96 176 L96 198" fill="none" stroke="#565f89"
+          stroke-width="1.5" marker-end="url(#ah10)"/>
+        <path d="M210 152 L210 176 L264 176 L264 198" fill="none" stroke="#565f89"
+          stroke-width="1.5" marker-end="url(#ah10)"/>
+        <!-- success -->
+        <rect x="20" y="204" width="152" height="72" rx="12" fill="#24283b"
+          stroke="#9ece6a" stroke-width="1.6"/>
+        <text x="96" y="230" text-anchor="middle" fill="#9ece6a"
+          font-family="var(--mono)" font-size="12.5">success</text>
+        <text x="96" y="250" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">タイトルを</text>
+        <text x="96" y="266" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">表示</text>
+        <!-- failure -->
+        <rect x="188" y="204" width="152" height="72" rx="12" fill="#24283b"
+          stroke="#f7768e" stroke-width="1.6"/>
+        <text x="264" y="230" text-anchor="middle" fill="#f7768e"
+          font-family="var(--mono)" font-size="12.5">failure</text>
+        <text x="264" y="250" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">エラーを</text>
+        <text x="264" y="266" text-anchor="middle" fill="#a9b1d6"
+          font-family="var(--sans)" font-size="12">表示</text>
+
+        <text x="180" y="312" text-anchor="middle" fill="#bb9af7"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">問45 RemoteData（状態の型）</text>
+        <text x="180" y="332" text-anchor="middle" fill="#7dcfff"
+          font-family="var(--sans)" font-size="12.5" font-weight="600">× 問46 fetchTitle（取得）＝ 1画面</text>
+      </svg>
+      <figcaption>図10: idle→loading→success/failure。状態を型（問45）で、取得をasync（問46）で。合わせて実画面。</figcaption>
+    </figure>
+
+    <div class="callout tip">
+      <p class="ttl">いま作っているものの正体</p>
+      <p>Reactのデータ取得は全部これ。「APIから取って画面に出す」の全てが
+        <strong>Promise ＋ async/await ＋（loadingの）状態管理</strong>。
+        問46は、Reactアプリで一番よく使う<strong>血管そのもの</strong>を組む練習です。</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <div>問46 非同期の深掘り資料 &middot; TypeScript 学習ループ Lv6</div>
+    <div>Promise / async / await / fetch ― 「あとで届く値を、固まらずに扱う」</div>
+  </div>
+</footer>
+
+</body>
+</html>
